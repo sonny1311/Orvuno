@@ -10,6 +10,13 @@ const play=await read('js/core/GooglePlayBillingIntegration.js');
 const privacy=await read('datenschutz.html');
 const deletion=await read('konto-loeschen.html');
 const footer=await read('js/core/FooterInformationLinksIntegration.js');
+const guide=await read('spielanleitung.html');
+const faq=await read('faq.html');
+const updates=await read('aktuelles.html');
+const publicCss=await read('css/public-content.css');
+const ads=await read('ads.txt');
+const robots=await read('robots.txt');
+const sitemap=await read('sitemap.xml');
 
 const requiredTopics=[
   'overview','procurement','inbound','warehouse','staff','machines','production','bottling',
@@ -42,8 +49,31 @@ assert.match(index,/Kundenaufträge & Lieferung/,'Kundenaufträge/Lieferung fehl
 assert.match(index,/Markt & Finanzen/,'Markt/Finanzen fehlt im öffentlichen Inhalt');
 assert.match(index,/Ausbau & mehrere Betriebe/,'Ausbau/Betriebe fehlt im öffentlichen Inhalt');
 assert.match(index,/Coins, Premium und fairer Spielstand/,'Coins/Premium-Kontext fehlt im öffentlichen Inhalt');
+assert.match(index,/href="\/spielanleitung\.html"/,'Startseite verlinkt die Spielanleitung nicht statisch');
+assert.match(index,/href="\/faq\.html"/,'Startseite verlinkt die FAQ nicht statisch');
+assert.match(index,/href="\/aktuelles\.html"/,'Startseite verlinkt Aktuelles nicht statisch');
+assert.match(index,/google-adsense-account/,'AdSense-Kontoverknüpfung fehlt auf der Startseite');
+assert.doesNotMatch(index,/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle/,'AdSense-Auto-Ads dürfen nicht direkt auf dem verpflichtenden Login-Screen geladen werden');
 assert.match(index,/ContextualHelpAndTutorialIntegration\.js/,'Hilfe-/Tutorial-Modul wird nicht geladen');
-assert.ok(index.length>12000,'Öffentliche Startseite ist für die geforderte Spielbeschreibung unerwartet dünn');
+assert.ok(index.length>13000,'Öffentliche Startseite ist für die geforderte Spielbeschreibung unerwartet dünn');
+
+assert.ok(guide.length>9000,'Spielanleitung ist unerwartet kurz');
+for(const heading of ['Einkauf und Lieferanten','Lager und Kapazität','Personal richtig einsetzen','Maschinen, Wartung und Durchsatz','Produktion planen und starten','Abfüllung und verkaufsfähige Ware','Kundenaufträge auswählen','Auslieferung und Logistik','Markt, Preise und Deckungsbeitrag','Finanzen, Liquidität und Kredite','Mehrere Betriebe und Betriebswechsel','Coins, Premium und Firmengeld'])assert.match(guide,new RegExp(heading),`Spielanleitung fehlt: ${heading}`);
+assert.match(guide,/google-adsense-account/,'Spielanleitung ist nicht mit dem AdSense-Konto verknüpft');
+assert.match(guide,/adsbygoogle\.js\?client=ca-pub-5715415363963326/,'Spielanleitung lädt den AdSense-Code nicht');
+
+const faqQuestions=(faq.match(/<summary>/g)||[]).length;
+assert.ok(faqQuestions>=30,`FAQ ist nicht ausführlich genug: ${faqQuestions} Fragen`);
+assert.ok(faq.length>11000,'FAQ ist unerwartet kurz');
+for(const topic of ['Was ist ORVUNO überhaupt?','Warum ist gekaufte Ware nicht sofort im Lager?','Was ist der Unterschied zwischen „Einplanen“ und „Starten“?','Wie erkenne ich einen guten Kundenauftrag?','Wann ist ein Kredit sinnvoll?','Wie kann ich mein Konto und meine Daten löschen lassen?','Wie werden Käufe in der Google-Play-App verarbeitet?'])assert.match(faq,new RegExp(topic.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')),`FAQ-Thema fehlt: ${topic}`);
+assert.match(faq,/google-adsense-account/,'FAQ ist nicht mit dem AdSense-Konto verknüpft');
+
+assert.ok(updates.length>4500,'Aktuelles-Seite ist zu dünn');
+assert.match(updates,/Diese Seite wird nur mit tatsächlichen Änderungen gefüllt/,'Aktuelles trennt echte Änderungen nicht von Planung');
+assert.match(updates,/Google-Play-Billing vorbereitet/,'Google-Play-Releasehinweis fehlt');
+assert.match(updates,/Ausführliche Spielhilfe und Tutorial/,'Hilfe-/Tutorial-Update fehlt');
+assert.match(updates,/Öffentliche Spielanleitung und FAQ/,'Öffentliche Content-Erweiterung fehlt');
+assert.match(publicCss,/@media\(max-width:760px\)/,'Öffentliche Inhaltsseiten besitzen kein Mobile-Layout');
 
 assert.match(auth,/recoveryMode\(\)/,'Recovery-Modus im Auth-Dialog fehlt');
 assert.match(auth,/renderRecovery\(panel\)/,'Neues-Passwort-Dialog fehlt');
@@ -61,9 +91,18 @@ assert.match(privacy,/Hosting und Datenbank/,'Datenschutzerklärung beschreibt t
 assert.match(privacy,/href="\/konto-loeschen\.html"/,'Datenschutzerklärung verweist nicht auf die Kontolöschung');
 assert.match(deletion,/<title>ORVUNO-Konto löschen<\/title>/,'Öffentliche Kontolöschseite fehlt');
 assert.match(deletion,/Löschung per E-Mail beantragen/,'Kontolöschseite bietet keinen sichtbaren Antragsweg');
-assert.match(footer,/PRIVACY_URL='\/datenschutz\.html'/,'Footer verweist nicht direkt auf die Datenschutzerklärung');
-assert.match(footer,/ACCOUNT_DELETION_URL='\/konto-loeschen\.html'/,'In-App-Footer verweist nicht auf die Kontolöschung');
-assert.match(footer,/\['Konto löschen','accountDeletion'\]/,'Kontolöschung ist im App-Footer nicht sichtbar');
+
+assert.match(footer,/guide:'\/spielanleitung\.html'/,'In-App-Footer verlinkt die Spielanleitung nicht');
+assert.match(footer,/faq:'\/faq\.html'/,'In-App-Footer verlinkt die FAQ nicht');
+assert.match(footer,/updates:'\/aktuelles\.html'/,'In-App-Footer verlinkt Aktuelles nicht');
+assert.match(footer,/privacy:'\/datenschutz\.html'/,'In-App-Footer verweist nicht direkt auf die Datenschutzerklärung');
+assert.match(footer,/accountDeletion:'\/konto-loeschen\.html'/,'In-App-Footer verweist nicht auf die Kontolöschung');
+assert.match(footer,/mountAuthPublicLinks/,'Öffentliche Inhalte sind auf der Login-/Registrierungsansicht nicht verlinkt');
+assert.match(footer,/Noch unsicher\? Spielanleitung und FAQ/,'Loginseite erklärt die öffentlichen Hilfsangebote nicht');
+
+assert.equal(ads.trim(),'google.com, pub-5715415363963326, DIRECT, f08c47fec0942fa0','ads.txt enthält nicht die erwartete AdSense-Publisher-ID');
+assert.match(robots,/Sitemap: https:\/\/www\.orvuno\.de\/sitemap\.xml/,'robots.txt verweist nicht auf die Sitemap');
+for(const path of ['spielanleitung.html','faq.html','aktuelles.html','datenschutz.html','impressum.html','konto-loeschen.html'])assert.match(sitemap,new RegExp(path.replace('.','\\.')),`Sitemap enthält ${path} nicht`);
 
 assert.match(gate,/recoveryPending\(\)/,'Access-Gate erkennt Recovery-Session nicht');
 assert.match(gate,/if\(this\.recoveryPending\(\)\) return false/,'Recovery-Session kann weiterhin Spielzugang erhalten');
@@ -76,4 +115,4 @@ assert.match(play,/restoreGooglePlayPurchases\(\)/,'Play-Restore verwendet nicht
 assert.match(play,/edge\('verify_purchase'/,'Play-Käufe werden nicht serverseitig verifiziert');
 assert.doesNotMatch(play,/coin_wallet|balance\s*\+=|premiumUntil\s*=/i,'Play-Client enthält verdächtige clientseitige Entitlement-Gutschrift');
 
-console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP/PRIVACY/DELETION TESTS ERFOLGREICH');
+console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP/ADSENSE/PUBLIC-PAGES TESTS ERFOLGREICH');
