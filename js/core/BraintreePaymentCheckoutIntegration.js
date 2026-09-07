@@ -17,10 +17,13 @@ export async function beginBraintreePurchase({sku,label,priceEuro}={}){assertChe
 export function beginCoinPurchase(request={}){return beginBraintreePurchase({sku:request.packageId,label:`${Number(request.coins||0).toLocaleString('de-DE')} Coins`,priceEuro:request.priceEuro});}
 export function beginPremiumPurchase(plan={}){return beginBraintreePurchase({sku:plan.id||plan.planId,label:plan.label||'Premium',priceEuro:plan.priceEuro});}
 function install(){
+  // Native Store-Apps dürfen niemals auf einen externen Checkout zurückfallen.
+  if(window.orvunoAppBridge?.isNativeApp)return false;
   // Käufe werden ausschließlich von expliziten Kaufbuttons gestartet. Ein generisches
   // "plan-selected"-Event darf niemals automatisch einen Echtgeld-Checkout öffnen.
   window.worldPaymentProviders??={};
   window.worldPaymentProviders.braintree={id:'braintree',label:'PayPal / Braintree',beginCoinPurchase,beginPremiumPurchase,begin:beginBraintreePurchase};
   window.worldPaymentCheckout=window.worldPaymentProviders.braintree;
+  return true;
 }
 if(typeof window!=='undefined')install();
