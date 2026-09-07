@@ -4,6 +4,10 @@
 const STORE_ID='https://play.google.com/billing';
 let catalogPromise=null;
 let servicePromise=null;
+let autoRestorePromise=null;
+let autoRestoreIdentity='';
+let autoRestoreTimer=null;
+let autoRestoreAttempts=0;
 
 function api(){const a=window.worldAccounts?.authApi;if(!a)throw new Error('Google Play Billing ist noch nicht bereit');return a;}
 async function edge(action,data={}){const a=api(),token=await a.ensureAccessToken();if(!token)throw new Error('Bitte zuerst anmelden');const r=await fetch(`${a.baseUrl}/functions/v1/world-google-play`,{method:'POST',headers:{apikey:a.publishableKey,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const b=await r.json().catch(()=>({}));if(!r.ok||b.success===false)throw new Error(b.error||b.message||`Google Play Billing fehlgeschlagen (${r.status})`);return b;}
@@ -41,6 +45,51 @@ export async function restoreGooglePlayPurchases(){
   return results;
 }
 
+function restoreIdentity(){
+  const user=window.worldCurrentUser||{};
+  const id=String(user.id||user.authId||user.auth_user_id||user.public_id||'').trim();
+  if(id)return id;
+  const token=window.worldAccounts?.authApi?.session?.access_token||'';
+  return token?`session:${String(token).slice(-24)}`:'';
+}
+
+export async function autoRestoreGooglePlayPurchases(){
+  const auth=window.worldAccounts?.authApi;
+  if(!auth?.session?.access_token||!window.worldCurrentUser)return false;
+  const identity=restoreIdentity();
+  if(!identity)return false;
+  if(autoRestoreIdentity===identity)return true;
+  if(autoRestorePromise)return autoRestorePromise;
+  autoRestorePromise=(async()=>{
+    try{
+      const results=await restoreGooglePlayPurchases();
+      const complete=results.every(result=>result?.success!==false);
+      if(complete){
+        autoRestoreIdentity=identity;
+        window.dispatchEvent(new CustomEvent('world:google-play-restored',{detail:{results}}));
+      }
+      return complete;
+    }catch(error){
+      console.warn('Google-Play-Wiederherstellung wird später erneut versucht',error);
+      return false;
+    }finally{
+      autoRestorePromise=null;
+    }
+  })();
+  return autoRestorePromise;
+}
+
+function scheduleAutoRestore(delay=500){
+  clearTimeout(autoRestoreTimer);
+  autoRestoreTimer=setTimeout(async()=>{
+    const complete=await autoRestoreGooglePlayPurchases();
+    if(complete)return;
+    if(autoRestoreAttempts>=4)return;
+    autoRestoreAttempts+=1;
+    scheduleAutoRestore(Math.min(4000,500*(2**autoRestoreAttempts)));
+  },delay);
+}
+
 export async function beginGooglePlayPurchase({internalSku}={}){
   if(!internalSku)throw new Error('Ungültiges Kaufprodukt');
   const [svc,product]=await Promise.all([service(),productFor(internalSku)]);
@@ -55,6 +104,7 @@ export async function beginGooglePlayPurchase({internalSku}={}){
     try{await response.complete('success');}catch(_e){}
     await refreshEntitlements();
     window.dispatchEvent(new CustomEvent('world:payment-return',{detail:{provider:'google_play',status:'fulfilled',paid:true,fulfilled:true,sku:product.internalSku,playSku:product.playSku,consumePending:!!verified.consumePending}}));
+    if(verified.consumePending){autoRestoreIdentity='';autoRestoreAttempts=0;scheduleAutoRestore(700);}
     return verified;
   }catch(error){
     if(response){try{await response.complete('fail');}catch(_e){}}
@@ -66,8 +116,13 @@ export async function beginGooglePlayPurchase({internalSku}={}){
 export function beginCoinPurchase(request={}){return beginGooglePlayPurchase({internalSku:request.packageId});}
 export function beginPremiumPurchase(plan={}){return beginGooglePlayPurchase({internalSku:plan.id||plan.planId});}
 
-const provider={id:'google_play',label:'Google Play',begin:beginGooglePlayPurchase,beginCoinPurchase,beginPremiumPurchase,getCatalogDetails:getGooglePlayCatalogDetails,restorePurchases:restoreGooglePlayPurchases};
+const provider={id:'google_play',label:'Google Play',begin:beginGooglePlayPurchase,beginCoinPurchase,beginPremiumPurchase,getCatalogDetails:getGooglePlayCatalogDetails,restorePurchases:restoreGooglePlayPurchases,autoRestorePurchases:autoRestoreGooglePlayPurchases};
 window.worldPaymentProviders??={};
 window.worldPaymentProviders.google_play=provider;
 window.worldPaymentCheckout=provider;
 window.orvunoGooglePlayBilling=provider;
+
+const triggerAutoRestore=()=>{autoRestoreAttempts=0;scheduleAutoRestore(350);};
+window.addEventListener('world:user-login',triggerAutoRestore);
+window.addEventListener('world:access-granted',triggerAutoRestore);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>scheduleAutoRestore(900),{once:true});else scheduleAutoRestore(900);
