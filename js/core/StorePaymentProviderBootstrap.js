@@ -7,7 +7,7 @@ if(store==='google'){
   await import('./GooglePlayBillingIntegration.js');
 }else if(store==='amazon'){
   // Amazon-App: ausschließlich native Amazon-IAP-Brücke + serverseitige RVS-Prüfung.
-  // Niemals Stripe/Braintree in der Amazon-App laden.
+  // Externe Web-Zahlungsanbieter werden in der Amazon-App nicht geladen.
   await import('./AmazonAppstoreBillingIntegration.js');
 }else{
   // Nur die normale Webversion darf externe Zahlungsanbieter laden.
