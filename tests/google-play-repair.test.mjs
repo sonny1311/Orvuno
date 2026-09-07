@@ -8,6 +8,7 @@ const platform=read('js/core/AppPlatformBridge.js');
 const storeBootstrap=read('js/core/StorePaymentProviderBootstrap.js');
 const playClient=read('js/core/GooglePlayBillingIntegration.js');
 const playPriceUi=read('js/core/GooglePlayPriceUiIntegration.js');
+const mobileUi=read('js/core/MobileAppUsabilityIntegration.js');
 const edge=read('supabase/functions/world-google-play/index.ts');
 const migration=read('database/031_google_play_billing_fulfillment.sql');
 const appLoader=read('js/app-loader.js');
@@ -20,11 +21,7 @@ function test(name,fn){
 
 function runPlatform({search='',referrer='',standalone=false,stored=''}){
   const memory=new Map(stored?[['orvuno.nativeStore',stored]]:[]);
-  const document={
-    referrer,
-    documentElement:{dataset:{}},
-    querySelectorAll:()=>[]
-  };
+  const document={referrer,documentElement:{dataset:{}},querySelectorAll:()=>[]};
   const navigator={onLine:true};
   const window={
     navigator,
@@ -102,10 +99,11 @@ test('Google Play edge verifies purchase server-side and uses hashed token idemp
   assert(edge.includes('androidpublisher.googleapis.com/androidpublisher/v3/applications'));
   assert(edge.includes('/purchases/products/'));
   assert(edge.includes('purchaseState)!==0'));
-  assert(edge.includes("sha256Hex(purchaseToken)"));
+  assert(edge.includes('sha256Hex(purchaseToken)'));
   assert(edge.includes('fulfill_google_play_purchase'));
   assert(edge.includes(':consume'));
-  assert(!edge.includes('payment_purchases').valueOf || true);
+  assert(edge.includes('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON'));
+  assert(edge.includes('GOOGLE_PLAY_SKU_MAP_JSON'));
 });
 
 test('payment migration fixes status domain and locks fulfillment to service role',()=>{
@@ -114,6 +112,13 @@ test('payment migration fixes status domain and locks fulfillment to service rol
   assert(migration.includes('on conflict(provider,provider_transaction_id) do nothing'));
   assert(migration.includes('REVOKE EXECUTE ON FUNCTION public.fulfill_google_play_purchase'));
   assert(migration.includes('GRANT EXECUTE ON FUNCTION public.fulfill_google_play_purchase'));
+});
+
+test('mobile DOM normalization is throttled and limited to structural mutations',()=>{
+  assert(mobileUi.includes('setTimeout(()=>requestAnimationFrame'));
+  assert(mobileUi.includes('if(!isMobile()||queued)return'));
+  assert(mobileUi.includes('m.addedNodes.length||m.removedNodes.length'));
+  assert(mobileUi.includes('observer.disconnect()'));
 });
 
 test('Digital Asset Links route is fail-closed and package-bound',()=>{
