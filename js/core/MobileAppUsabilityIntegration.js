@@ -76,7 +76,6 @@ html.orvuno-installed-app .android-download-fab{display:none!important}
     if(nav){nav.style.removeProperty('top');nav.setAttribute('aria-label','ORVUNO Schnellnavigation');}
     moveFloatingActionsIntoNav();
     moveLanguageIntoNav();
-    // Remove desktop-only fixed positioning from large content overlays so the page itself scrolls.
     document.querySelectorAll('#world-home-dashboard [style*="position: fixed"],#world-home-dashboard [style*="position:fixed"]').forEach(el=>{
       if(el.closest('[role="dialog"],.modal,.dialog,.orvuno-modal'))return;
       const r=el.getBoundingClientRect();
@@ -97,5 +96,17 @@ html.orvuno-installed-app .android-download-fab{display:none!important}
   installStyle();mark();
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',normalizeRuntime,{once:true});else normalizeRuntime();
   addEventListener('resize',normalizeRuntime,{passive:true});
-  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;normalizeRuntime();});}).observe(document.documentElement,{childList:true,subtree:true});
+
+  let queued=false;
+  let timer=0;
+  function queueNormalize(){
+    if(!isMobile()||queued)return;
+    queued=true;
+    timer=setTimeout(()=>requestAnimationFrame(()=>{queued=false;normalizeRuntime();}),100);
+  }
+  const observer=new MutationObserver(mutations=>{
+    if(mutations.some(m=>m.addedNodes.length||m.removedNodes.length))queueNormalize();
+  });
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  addEventListener('beforeunload',()=>{if(timer)clearTimeout(timer);observer.disconnect();},{once:true});
 })();
