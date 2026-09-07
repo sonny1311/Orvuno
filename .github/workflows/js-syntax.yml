@@ -29,7 +29,9 @@ jobs:
         run: node --experimental-strip-types --check supabase/functions/world-google-play/index.ts
       - name: Run Google Play repair regression tests
         shell: bash
-        run: node tests/google-play-repair.test.mjs
+        run: |
+          node tests/google-play-repair.test.mjs
+          node tests/google-play-user-activation.test.mjs
       - name: Run pre-release content, auth and help regression tests
         shell: bash
         run: node tests/pre-release-qa-content.test.mjs
