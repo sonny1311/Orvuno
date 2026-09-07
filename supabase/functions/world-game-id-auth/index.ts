@@ -47,6 +47,7 @@ Deno.serve(async(req:Request)=>{
     const body=await req.json().catch(()=>({}));
     const action=String(body?.action||"");
 
+    // Nur für alte, bereits vorhandene Spielstände. Neue Spieler erhalten keine sichtbare Kennung mehr.
     if(action==="issue"||action==="rotate"){
       let profile;
       try{profile=await authenticatedProfile(req,admin);}catch(error){return json({error:error instanceof Error?error.message:"Nicht angemeldet"},401);}
@@ -70,7 +71,7 @@ Deno.serve(async(req:Request)=>{
       const id=crypto.randomUUID(),email=internalEmail(id),now=new Date().toISOString();
       const {data:created,error:createError}=await admin.auth.admin.createUser({
         id,email,email_confirm:true,
-        user_metadata:{username,country_code:"DE",language_code:"de",privacy_version:"1.0",privacy_acknowledged:true,registration_channel:"game_id"}
+        user_metadata:{username,country_code:"DE",language_code:"de",privacy_version:"1.0",privacy_acknowledged:true,registration_channel:"device_session"}
       });
       if(createError||!created.user){
         const duplicate=/duplicate|unique|username/i.test(String(createError?.message||""));
@@ -84,18 +85,18 @@ Deno.serve(async(req:Request)=>{
       }).eq("id",profile.id);
       if(updateError)throw updateError;
 
-      const credential=await makeCredential(admin,Number(profile.id));
       const session=await issueSession(admin,anon,email);
-      return json({success:true,...credential,session,username});
+      return json({success:true,session,username});
     }
 
+    // Unsichtbarer Migrationsweg für ältere lokale Spielstände.
     if(action==="resume"){
       const compact=normalize(body?.gameId);
-      if(compact.length!==20)return json({error:"Spiel-ID ist ungültig"},400);
+      if(compact.length!==20)return json({error:"Wiederherstellungskennung ist ungültig"},400);
       const hash=await sha256Hex(compact);
       const {data:cred,error:credError}=await admin.from("game_id_credentials").select("user_id").eq("game_id_hash",hash).maybeSingle();
       if(credError)throw credError;
-      if(!cred)return json({error:"Spiel-ID wurde nicht gefunden"},404);
+      if(!cred)return json({error:"Wiederherstellungskennung wurde nicht gefunden"},404);
       const {data:profile,error:profileError}=await admin.from("users").select("id,status,auth_user_id,email").eq("id",cred.user_id).maybeSingle();
       if(profileError||!profile||profile.status!=="active")return json({error:"Spielstand ist nicht verfügbar"},403);
       if(!profile.auth_user_id||!profile.email)return json({error:"Dieser alte Spielstand braucht einmalig eine interne Zuordnung"},409);
@@ -105,5 +106,5 @@ Deno.serve(async(req:Request)=>{
     }
 
     return json({error:"Unbekannte Aktion"},400);
-  }catch(error){console.error("world-game-id-auth",error instanceof Error?error.message:"unknown");return json({error:error instanceof Error?error.message:"Spiel-ID-Fehler"},500);}
+  }catch(error){console.error("world-game-id-auth",error instanceof Error?error.message:"unknown");return json({error:error instanceof Error?error.message:"Zugangsfehler"},500);}
 });
