@@ -1,0 +1,102 @@
+name: ORVUNO Code7 Play AAB
+
+on:
+  push:
+    branches:
+      - build/orvuno-code7-test-apk
+    paths:
+      - 'android-release/**'
+      - '.github/workflows/orvuno-code7-play-aab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 build tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Generate Play project from startup-verified wrapper
+        run: bash android-release/build-orvuno-code7-play.sh android-release/orvuno-code7-play
+
+      - name: Validate exact release identity and billing bridge
+        run: |
+          set -euo pipefail
+          GRADLE=android-release/orvuno-code7-play/app/build.gradle
+          MANIFEST=android-release/orvuno-code7-play/app/src/main/AndroidManifest.xml
+          DELEGATION=android-release/orvuno-code7-play/app/src/main/java/de/nadena/orvuno/DelegationService.java
+          grep -q "applicationId 'de.nadena.orvuno'" "$GRADLE"
+          grep -q 'minSdk 23' "$GRADLE"
+          grep -q 'targetSdk 36' "$GRADLE"
+          grep -q 'versionCode 7' "$GRADLE"
+          grep -q "versionName '1.0.4'" "$GRADLE"
+          grep -q 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2' "$GRADLE"
+          grep -q 'com.google.androidbrowserhelper:billing:1.2.0' "$GRADLE"
+          grep -q 'com.android.vending.BILLING' "$MANIFEST"
+          grep -q 'PaymentActivity' "$MANIFEST"
+          grep -q 'PaymentService' "$MANIFEST"
+          grep -q 'DigitalGoodsRequestHandler' "$DELEGATION"
+          if grep -q 'LAUNCHING_BROWSER' "$MANIFEST"; then
+            echo 'Unexpected forced browser metadata found.' >&2
+            exit 1
+          fi
+
+      - name: Build unsigned Play AAB
+        working-directory: android-release/orvuno-code7-play
+        run: gradle --no-daemon :app:bundleRelease --stacktrace
+
+      - name: Collect and inspect AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-output
+          cp android-release/orvuno-code7-play/app/build/outputs/bundle/release/app-release.aab \
+            release-output/ORVUNO-1.0.4-code7-unsigned.aab
+          AAB=release-output/ORVUNO-1.0.4-code7-unsigned.aab
+          test -s "$AAB"
+          test "$(stat -c%s "$AAB")" -gt 10000
+          {
+            echo 'ORVUNO 1.0.4 / code 7 Play candidate'
+            echo 'package=de.nadena.orvuno'
+            echo 'versionName=1.0.4'
+            echo 'versionCode=7'
+            echo 'minSdk=23'
+            echo 'targetSdk=36'
+            echo 'coreABH=2.6.2 (startup-verified base)'
+            echo 'billingABH=1.2.0'
+            echo 'forcedBrowser=NO'
+            echo 'signing=UNSIGNED in CI; production upload key never stored in GitHub'
+            sha256sum "$AAB"
+          } > release-output/ORVUNO-1.0.4-code7-build-report.txt
+
+      - name: Upload unsigned AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ORVUNO-1.0.4-code7-PLAY-UNSIGNED
+          path: |
+            release-output/ORVUNO-1.0.4-code7-unsigned.aab
+            release-output/ORVUNO-1.0.4-code7-build-report.txt
+          if-no-files-found: error
+          retention-days: 7
