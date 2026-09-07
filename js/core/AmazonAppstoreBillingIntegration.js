@@ -2,7 +2,7 @@
 const AMAZON_SKU_MAP=Object.freeze({
   coins_100:'orvuno_coins_100',coins_550:'orvuno_coins_550',coins_1200:'orvuno_coins_1200',coins_2600:'orvuno_coins_2600',
   coins_6000:'orvuno_coins_6000',coins_13000:'orvuno_coins_13000',coins_26000:'orvuno_coins_26000',coins_50000:'orvuno_coins_50000',
-  premium_1m:'orvuno_premium_1m',premium_3m:'orvuno_premium_3m',premium_6m:'orvuno_premium_6m',premium_12m:'orvuno_premium_12m'
+  premium_1m:'orvuno_premium_4w',premium_3m:'orvuno_premium_3m',premium_6m:'orvuno_premium_6m',premium_12m:'orvuno_premium_12m'
 });
 const INTERNAL_BY_AMAZON=Object.freeze(Object.fromEntries(Object.entries(AMAZON_SKU_MAP).map(([k,v])=>[v,k])));
 const productCache=new Map();
@@ -68,7 +68,16 @@ function updateAmazonCatalogUi(){
       const price=String(product.price);
       if(button.textContent!==price)button.textContent=price;
       button.disabled=false;button.title='Abrechnung über Amazon Appstore';
-    }else{button.disabled=true;button.title='Amazon-Preis wird geladen …';}
+    }else{
+      button.disabled=true;
+      button.textContent='Amazon wird geladen …';
+      button.title='Amazon-Preis wird geladen …';
+    }
+    if(internalSku==='premium_1m'){
+      const card=button.closest('article'),title=card?.querySelector('h3'),sub=card?.querySelector('p');
+      if(title&&title.textContent!=='4 Wochen Premium')title.textContent='4 Wochen Premium';
+      if(sub&&sub.textContent!=='28 Tage Premium')sub.textContent='28 Tage Premium';
+    }
   });
 }
 function queueUiUpdate(){
