@@ -10,12 +10,12 @@
   <meta name="application-name" content="ORVUNO">
   <title>ORVUNO – Wirtschaftssimulation mit Lieferketten, Produktion und Handel</title>
   <meta name="description" content="ORVUNO ist eine fortlaufende Wirtschaftssimulation: Betriebe aufbauen, Rohstoffe einkaufen, Lager und Personal planen, produzieren, Kundenaufträge erfüllen, liefern und expandieren.">
+  <meta name="google-adsense-account" content="ca-pub-5715415363963326">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="app-icon.svg">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/app-shell.css">
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5715415363963326" crossorigin="anonymous"></script>
   <style>
     html:not(.orvuno-authenticated) #worldApp,
     html:not(.orvuno-authenticated) #world-main-nav,
@@ -27,7 +27,8 @@
     #orvuno-public-context *{box-sizing:border-box}#orvuno-public-context .public-hero{max-width:900px;margin:0 auto 42px;text-align:center}#orvuno-public-context .public-kicker{color:#f4bd43;font-weight:900;letter-spacing:2px;text-transform:uppercase;font-size:13px}#orvuno-public-context h1{margin:12px 0 16px;font-size:clamp(36px,7vw,64px);line-height:1.02}#orvuno-public-context .public-lead{margin:0 auto;max-width:820px;color:#d6deea;font-size:clamp(17px,2.4vw,21px);line-height:1.65}
     #orvuno-public-context .public-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0 42px}#orvuno-public-context article{padding:22px;border:1px solid #304159;border-radius:14px;background:rgba(15,27,45,.86);box-shadow:0 12px 34px rgba(0,0,0,.16)}#orvuno-public-context article h2{margin:0 0 10px;font-size:20px;color:#f4bd43}#orvuno-public-context article p,#orvuno-public-context article li{color:#d7e0eb;line-height:1.62}#orvuno-public-context article ul{padding-left:20px;margin-bottom:0}
     #orvuno-public-context .public-section{max-width:1000px;margin:0 auto 34px;padding:26px;border:1px solid #2c3c54;border-radius:16px;background:rgba(8,18,32,.82)}#orvuno-public-context .public-section h2{margin:0 0 14px;font-size:clamp(24px,4vw,32px)}#orvuno-public-context .public-section p{color:#d7e0eb;line-height:1.7;margin:10px 0}#orvuno-public-context .public-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}#orvuno-public-context .public-step{padding:14px;border-radius:10px;background:#101d30;border:1px solid #2d405c;color:#e8eef5;font-weight:700;line-height:1.4}#orvuno-public-context .public-note{max-width:1000px;margin:0 auto;padding:18px 22px;border-left:4px solid #f4bd43;border-radius:10px;background:rgba(244,189,67,.08);color:#dbe4ef;line-height:1.65}
-    @media (max-width:850px){#orvuno-public-context .public-grid{grid-template-columns:1fr 1fr}#orvuno-public-context .public-flow{grid-template-columns:1fr 1fr}}@media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}#orvuno-public-context{padding:30px 16px 54px}#orvuno-public-context .public-grid{grid-template-columns:1fr}#orvuno-public-context .public-flow{grid-template-columns:1fr}#orvuno-public-context article,#orvuno-public-context .public-section{padding:19px}}
+    #orvuno-public-context .public-links{max-width:1000px;margin:0 auto 34px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}#orvuno-public-context .public-links a{display:block;padding:17px 18px;border:1px solid #355171;border-radius:12px;background:#0e1c30;color:#fff;text-decoration:none;font-weight:850}#orvuno-public-context .public-links a span{display:block;margin-top:5px;color:#aebdd0;font-size:13px;font-weight:500;line-height:1.45}#orvuno-public-context .public-links a:hover{border-color:#5d84b4;background:#142741}
+    @media (max-width:850px){#orvuno-public-context .public-grid{grid-template-columns:1fr 1fr}#orvuno-public-context .public-flow{grid-template-columns:1fr 1fr}#orvuno-public-context .public-links{grid-template-columns:1fr}}@media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}#orvuno-public-context{padding:30px 16px 54px}#orvuno-public-context .public-grid{grid-template-columns:1fr}#orvuno-public-context .public-flow{grid-template-columns:1fr}#orvuno-public-context article,#orvuno-public-context .public-section{padding:19px}}
   </style>
   <script>
     (()=>{
@@ -62,6 +63,12 @@
       <h1>ORVUNO</h1>
       <p class="public-lead">ORVUNO ist eine fortlaufende Wirtschaftssimulation, in der du einen Betrieb nicht nur anklickst, sondern als zusammenhängendes Unternehmen führst. Einkauf, Lager, Personal, Maschinen, Produktion, Abfüllung, Kundenaufträge, Logistik, Markt und Finanzierung greifen ineinander. Deine Aufgabe ist es, aus begrenztem Kapital und begrenzten Kapazitäten eine stabile, profitable Wirtschaft aufzubauen.</p>
     </header>
+
+    <nav class="public-links" aria-label="ORVUNO Informationen">
+      <a href="/spielanleitung.html">📘 Spielanleitung<span>Der komplette Wirtschaftskreislauf Schritt für Schritt erklärt.</span></a>
+      <a href="/faq.html">❓ Ausführliche FAQ<span>Antworten zu Produktion, Lager, Finanzen, Account, Coins und Google Play.</span></a>
+      <a href="/aktuelles.html">📰 Aktuelles & Updates<span>Konkrete Änderungen und Release-Hinweise statt leerer Platzhalter.</span></a>
+    </nav>
 
     <section class="public-section">
       <h2>So funktioniert der Wirtschaftskreislauf</h2>
