@@ -1,0 +1,61 @@
+name: ORVUNO Amazon 1.0.4 APK
+
+on:
+  push:
+    branches:
+      - fix/amazon-1.0.4-device-support
+    paths:
+      - 'android/amazon/**'
+      - '.github/workflows/orvuno-amazon-104.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build release APK
+        run: gradle -p android/amazon :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify Amazon package and Fire compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$APK"
+          BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
+          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='4' versionName='1.0.4'"
+          printf '%s\n' "$BADGING" | grep "sdkVersion:'21'"
+          printf '%s\n' "$BADGING" | grep "targetSdkVersion:'36'"
+          if printf '%s\n' "$BADGING" | grep -q "android.hardware.screen.portrait"; then
+            echo 'portrait-only hardware requirement is still present' >&2
+            exit 1
+          fi
+          printf '%s\n' "$BADGING" | grep "supports-screens: 'small' 'normal' 'large' 'xlarge'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q 'com.amazon.device.iap.ResponseReceiver'
+          unzip -l "$APK" | grep -q 'assets/AppstoreAuthenticationKey.pem'
+          {
+            echo 'VERSION_NAME=1.0.4'
+            echo 'VERSION_CODE=4'
+            echo 'MIN_SDK=21'
+            echo 'TARGET_SDK=36'
+            echo 'PORTRAIT_HARDWARE_REQUIREMENT=no'
+            echo 'IAP_KEY_PRESENT=yes'
+            sha256sum "$APK"
+          } > amazon-build.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ORVUNO-Amazon-1.0.4-code4-unsigned
+          path: |
+            android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
+            amazon-build.txt
+          if-no-files-found: error
+          retention-days: 14
