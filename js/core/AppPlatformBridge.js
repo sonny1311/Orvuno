@@ -24,14 +24,16 @@ function detectStore(){
     rememberStore(detected);
     return detected;
   }
-  // Backward compatibility for older TWA builds whose start_url only contains source=app.
-  // A standalone app launch is treated as Google Play unless Amazon was explicitly persisted.
-  if(appSource&&isStandalone()){
+  // source=app ist ausschließlich für den paketierten Android-Start vorgesehen.
+  // Trusted Web Activities melden display-mode nicht auf allen Geräten zuverlässig als
+  // standalone. Deshalb darf dieser Marker nicht zusätzlich davon abhängig sein.
+  if(appSource){
     const detected=persisted==='amazon'?'amazon':'google';
     rememberStore(detected);
     return detected;
   }
-  // A normal browser visit must remain web even if the same Chrome profile used the TWA before.
+  // Ein normaler Browserbesuch ohne App-Marker bleibt Web, selbst wenn dasselbe
+  // Chrome-Profil zuvor die TWA verwendet hat.
   return 'web';
 }
 
@@ -92,7 +94,7 @@ async function registerServiceWorker(){
 }
 
 window.orvunoAppBridge={
-  version:4,
+  version:5,
   standalone:isStandalone(),
   store:detectedStore,
   isNativeApp:nativeApp,
