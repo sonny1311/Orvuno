@@ -6,6 +6,7 @@ on:
       - build/orvuno-code7-test-apk
     paths:
       - 'android-test/**'
+      - 'android-release/**'
       - '.github/workflows/orvuno-code7-test-apk.yml'
   workflow_dispatch:
 
@@ -128,5 +129,65 @@ jobs:
             release-output/ORVUNO-1.0.4-code7-STARTTEST.apk
             release-output/ORVUNO-1.0.4-code7-STARTTEST-report.txt
             release-output/ORVUNO-1.0.4-code7-STARTTEST-signature.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Generate Play project from startup-verified wrapper
+        run: bash android-release/build-orvuno-code7-play.sh android-release/orvuno-code7-play
+
+      - name: Validate exact Play identity
+        run: |
+          set -euo pipefail
+          GRADLE=android-release/orvuno-code7-play/app/build.gradle
+          MANIFEST=android-release/orvuno-code7-play/app/src/main/AndroidManifest.xml
+          DELEGATION=android-release/orvuno-code7-play/app/src/main/java/de/nadena/orvuno/DelegationService.java
+          grep -q "applicationId 'de.nadena.orvuno'" "$GRADLE"
+          grep -q 'versionCode 7' "$GRADLE"
+          grep -q "versionName '1.0.4'" "$GRADLE"
+          grep -q 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2' "$GRADLE"
+          grep -q 'com.google.androidbrowserhelper:billing:1.2.0' "$GRADLE"
+          grep -q 'com.android.vending.BILLING' "$MANIFEST"
+          grep -q 'PaymentActivity' "$MANIFEST"
+          grep -q 'PaymentService' "$MANIFEST"
+          grep -q 'DigitalGoodsRequestHandler' "$DELEGATION"
+          if grep -q 'LAUNCHING_BROWSER' "$MANIFEST"; then
+            echo 'Unexpected forced browser metadata found.' >&2
+            exit 1
+          fi
+
+      - name: Build unsigned Play AAB
+        working-directory: android-release/orvuno-code7-play
+        run: gradle --no-daemon :app:bundleRelease --stacktrace
+
+      - name: Collect Play AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp android-release/orvuno-code7-play/app/build/outputs/bundle/release/app-release.aab \
+            release-output/ORVUNO-1.0.4-code7-unsigned.aab
+          AAB=release-output/ORVUNO-1.0.4-code7-unsigned.aab
+          test -s "$AAB"
+          test "$(stat -c%s "$AAB")" -gt 10000
+          {
+            echo 'ORVUNO 1.0.4 / code 7 Play candidate'
+            echo 'package=de.nadena.orvuno'
+            echo 'versionName=1.0.4'
+            echo 'versionCode=7'
+            echo 'minSdk=23'
+            echo 'targetSdk=36'
+            echo 'coreABH=2.6.2 (startup-verified base)'
+            echo 'billingABH=1.2.0'
+            echo 'forcedBrowser=NO'
+            echo 'signing=UNSIGNED in CI'
+            sha256sum "$AAB"
+          } > release-output/ORVUNO-1.0.4-code7-build-report.txt
+
+      - name: Upload unsigned Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ORVUNO-1.0.4-code7-PLAY-UNSIGNED
+          path: |
+            release-output/ORVUNO-1.0.4-code7-unsigned.aab
+            release-output/ORVUNO-1.0.4-code7-build-report.txt
           if-no-files-found: error
           retention-days: 7
