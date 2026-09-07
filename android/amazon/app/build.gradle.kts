@@ -27,5 +27,5 @@ android {
 }
 
 dependencies {
-    implementation("com.amazon.device:amazon-appstore-sdk:3.0.7")
+    implementation("com.amazon.device:amazon-appstore-sdk:3.0.9")
 }
