@@ -1,0 +1,2 @@
+-keep class com.amazon.** { *; }
+-dontwarn com.amazon.**
