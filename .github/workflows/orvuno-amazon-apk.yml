@@ -31,7 +31,7 @@ jobs:
             printf '%s' "$AMAZON_KEY_B64" | base64 --decode > android/amazon/app/src/main/assets/AppstoreAuthenticationKey.pem
             echo 'Amazon Appstore public key injected.'
           else
-            echo 'WARNING: AMAZON_APPSTORE_PUBLIC_KEY_B64 is not configured; APK can be start-tested but Appstore SDK IAP authentication is not release-ready.'
+            echo 'Using repository AppstoreAuthenticationKey.pem when present.'
           fi
       - name: Build release APK
         run: gradle -p android/amazon :app:assembleRelease --no-daemon --stacktrace
@@ -40,13 +40,14 @@ jobs:
           APK=android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
           test -f "$APK"
           BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
-          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='2' versionName='1.0.1'"
+          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='2' versionName='1.0.2'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q 'com.amazon.device.iap.ResponseReceiver'
-          if unzip -l "$APK" | grep -q 'assets/AppstoreAuthenticationKey.pem'; then echo 'IAP_KEY_PRESENT=yes' | tee amazon-build.txt; else echo 'IAP_KEY_PRESENT=no' | tee amazon-build.txt; fi
+          unzip -l "$APK" | grep -q 'assets/AppstoreAuthenticationKey.pem'
+          echo 'IAP_KEY_PRESENT=yes' | tee amazon-build.txt
           sha256sum "$APK" | tee -a amazon-build.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ORVUNO-Amazon-1.0.1-code2-unsigned
+          name: ORVUNO-Amazon-1.0.2-code2-unsigned
           path: |
             android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
             amazon-build.txt
