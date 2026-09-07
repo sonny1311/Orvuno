@@ -1,7 +1,33 @@
-// ORVUNO – schlanke Brücke zwischen Webspiel und späterem Android-/AdMob-Wrapper.
-// Enthält absichtlich keine produktiven SDK-IDs, Secrets oder Store-spezifischen Schlüssel.
+// ORVUNO – sichere Brücke zwischen Webspiel und nativen Store-Wrappern.
+// Native Store-Kontext wird fail-closed erkannt: in einer erkannten Store-App darf
+// niemals stillschweigend auf Stripe/PayPal zurückgefallen werden.
 
+const params=new URLSearchParams(location.search);
+const explicitStore=String(params.get('orvuno_store')||params.get('app')||'').toLowerCase();
+const androidReferrer=/^android-app:\/\//i.test(String(document.referrer||''));
 const isStandalone=()=>window.matchMedia?.('(display-mode: standalone)')?.matches||window.navigator.standalone===true;
+
+function storedStore(){
+  try{return String(localStorage.getItem('orvuno.nativeStore')||'').toLowerCase();}catch(_e){return '';}
+}
+function rememberStore(store){
+  if(!['google','amazon'].includes(store))return;
+  try{localStorage.setItem('orvuno.nativeStore',store);}catch(_e){}
+}
+function detectStore(){
+  if(explicitStore==='google'||explicitStore==='amazon'){rememberStore(explicitStore);return explicitStore;}
+  if(window.OrvunoAmazonIap){rememberStore('amazon');return 'amazon';}
+  const persisted=storedStore();
+  if(androidReferrer){
+    const detected=persisted==='amazon'?'amazon':'google';
+    rememberStore(detected);
+    return detected;
+  }
+  return persisted==='google'||persisted==='amazon'?persisted:'web';
+}
+
+const detectedStore=detectStore();
+const nativeApp=detectedStore==='google'||detectedStore==='amazon';
 
 function topVisibleOverlay(){
   const candidates=[...document.querySelectorAll('[data-orvuno-payment-overlay],[role="dialog"],.orvuno-modal,.modal,.dialog')]
@@ -45,6 +71,8 @@ async function showRewardedAd(context={}){
 
 function setConnectionState(){
   document.documentElement.dataset.orvunoOnline=navigator.onLine?'1':'0';
+  document.documentElement.dataset.orvunoStore=detectedStore;
+  document.documentElement.dataset.orvunoNativeApp=nativeApp?'1':'0';
   window.dispatchEvent(new CustomEvent('orvuno:connection-changed',{detail:{online:navigator.onLine}}));
 }
 
@@ -55,8 +83,11 @@ async function registerServiceWorker(){
 }
 
 window.orvunoAppBridge={
-  version:1,
+  version:3,
   standalone:isStandalone(),
+  store:detectedStore,
+  isNativeApp:nativeApp,
+  androidReferrer,
   handleBack,
   closeTopOverlay,
   registerRewardedAdProvider,
