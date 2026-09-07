@@ -69,7 +69,7 @@ jobs:
           mkdir -p release-output
           cp android-build/orvuno-1.0.3/app/build/outputs/bundle/release/app-release.aab release-output/ORVUNO-1.0.3-code6-unsigned.aab
           cd android-build/orvuno-1.0.3
-          gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > ../../../release-output/ORVUNO-1.0.3-dependencies.txt
+          gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > ../../release-output/ORVUNO-1.0.3-dependencies.txt
           cd ../..
           APK='android-build/orvuno-1.0.3/app/build/outputs/apk/release/app-release-unsigned.apk'
           ANALYZER="$(find "$ANDROID_HOME" -type f -name apkanalyzer 2>/dev/null | sort | tail -n 1 || true)"
