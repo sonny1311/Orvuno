@@ -1,0 +1,27 @@
+name: Export AAPT Temp
+
+on:
+  push:
+    branches: [feature/amazon-appstore-release]
+    paths:
+      - '.github/workflows/export-aapt-temp.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect aapt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p aapt-tools/lib64
+          cp "$ANDROID_HOME/build-tools/35.0.0/aapt" aapt-tools/aapt
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib64/libc++.so" aapt-tools/lib64/libc++.so
+          chmod +x aapt-tools/aapt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aapt-35-temp
+          path: aapt-tools
+          if-no-files-found: error
+          retention-days: 1
