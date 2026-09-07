@@ -8,6 +8,7 @@ const auth=await read('js/core/AccountAuthDialog.js');
 const gate=await read('js/core/GameAccessGate.js');
 const play=await read('js/core/GooglePlayBillingIntegration.js');
 const privacy=await read('datenschutz.html');
+const deletion=await read('konto-loeschen.html');
 const footer=await read('js/core/FooterInformationLinksIntegration.js');
 
 const requiredTopics=[
@@ -57,7 +58,12 @@ assert.match(auth,/if\(!termsBox\.checked\|\|!privacyBox\.checked\)/,'Registrier
 assert.match(privacy,/<title>Datenschutzerklärung – ORVUNO<\/title>/,'Öffentliche Datenschutzerklärung fehlt oder ist falsch benannt');
 assert.match(privacy,/Spielerkonto und Anmeldung/,'Datenschutzerklärung beschreibt Kontodaten nicht');
 assert.match(privacy,/Hosting und Datenbank/,'Datenschutzerklärung beschreibt technische Dienstleister nicht');
+assert.match(privacy,/href="\/konto-loeschen\.html"/,'Datenschutzerklärung verweist nicht auf die Kontolöschung');
+assert.match(deletion,/<title>ORVUNO-Konto löschen<\/title>/,'Öffentliche Kontolöschseite fehlt');
+assert.match(deletion,/Löschung per E-Mail beantragen/,'Kontolöschseite bietet keinen sichtbaren Antragsweg');
 assert.match(footer,/PRIVACY_URL='\/datenschutz\.html'/,'Footer verweist nicht direkt auf die Datenschutzerklärung');
+assert.match(footer,/ACCOUNT_DELETION_URL='\/konto-loeschen\.html'/,'In-App-Footer verweist nicht auf die Kontolöschung');
+assert.match(footer,/\['Konto löschen','accountDeletion'\]/,'Kontolöschung ist im App-Footer nicht sichtbar');
 
 assert.match(gate,/recoveryPending\(\)/,'Access-Gate erkennt Recovery-Session nicht');
 assert.match(gate,/if\(this\.recoveryPending\(\)\) return false/,'Recovery-Session kann weiterhin Spielzugang erhalten');
@@ -70,4 +76,4 @@ assert.match(play,/restoreGooglePlayPurchases\(\)/,'Play-Restore verwendet nicht
 assert.match(play,/edge\('verify_purchase'/,'Play-Käufe werden nicht serverseitig verifiziert');
 assert.doesNotMatch(play,/coin_wallet|balance\s*\+=|premiumUntil\s*=/i,'Play-Client enthält verdächtige clientseitige Entitlement-Gutschrift');
 
-console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP/PRIVACY TESTS ERFOLGREICH');
+console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP/PRIVACY/DELETION TESTS ERFOLGREICH');
