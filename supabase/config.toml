@@ -2,6 +2,10 @@
 [functions.world-payments]
 verify_jwt = true
 
+# Google Play purchase verification is player-bound and must receive a valid Supabase JWT.
+[functions.world-google-play]
+verify_jwt = true
+
 # Stripe cannot send a Supabase JWT. This endpoint authenticates requests exclusively
 # with the Stripe-Signature HMAC checked against STRIPE_WEBHOOK_SECRET.
 [functions.world-stripe-webhook]
