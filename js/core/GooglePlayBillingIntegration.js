@@ -4,6 +4,9 @@
 const STORE_ID='https://play.google.com/billing';
 let catalogPromise=null;
 let servicePromise=null;
+let restoreRun=null;
+let restoreTimer=null;
+let restoreAttempts=0;
 
 function api(){const a=window.worldAccounts?.authApi;if(!a)throw new Error('Google Play Billing ist noch nicht bereit');return a;}
 async function edge(action,data={}){const a=api(),token=await a.ensureAccessToken();if(!token)throw new Error('Bitte zuerst anmelden');const r=await fetch(`${a.baseUrl}/functions/v1/world-google-play`,{method:'POST',headers:{apikey:a.publishableKey,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const b=await r.json().catch(()=>({}));if(!r.ok||b.success===false)throw new Error(b.error||b.message||`Google Play Billing fehlgeschlagen (${r.status})`);return b;}
@@ -41,6 +44,34 @@ export async function restoreGooglePlayPurchases(){
   return results;
 }
 
+function runAutomaticRestore(){
+  if(restoreRun)return restoreRun;
+  restoreRun=restoreGooglePlayPurchases().catch(error=>{
+    console.warn('Google-Play-Käufe konnten noch nicht automatisch wiederhergestellt werden',error?.message||error);
+    return [];
+  }).finally(()=>{restoreRun=null;});
+  return restoreRun;
+}
+function scheduleAutomaticRestore(delay=0){
+  if(restoreTimer)clearTimeout(restoreTimer);
+  restoreTimer=setTimeout(async()=>{
+    restoreTimer=null;
+    try{
+      const a=window.worldAccounts?.authApi;
+      const token=await a?.ensureAccessToken?.();
+      if(!a||!token){
+        if(++restoreAttempts<30)scheduleAutomaticRestore(1000);
+        return;
+      }
+      restoreAttempts=0;
+      await runAutomaticRestore();
+    }catch(error){
+      if(++restoreAttempts<30)scheduleAutomaticRestore(1500);
+      else console.warn('Google-Play-Restore nach Sessionstart abgebrochen',error?.message||error);
+    }
+  },delay);
+}
+
 export async function beginGooglePlayPurchase({internalSku}={}){
   if(!internalSku)throw new Error('Ungültiges Kaufprodukt');
   const [svc,product]=await Promise.all([service(),productFor(internalSku)]);
@@ -55,6 +86,7 @@ export async function beginGooglePlayPurchase({internalSku}={}){
     try{await response.complete('success');}catch(_e){}
     await refreshEntitlements();
     window.dispatchEvent(new CustomEvent('world:payment-return',{detail:{provider:'google_play',status:'fulfilled',paid:true,fulfilled:true,sku:product.internalSku,playSku:product.playSku,consumePending:!!verified.consumePending}}));
+    if(verified.consumePending)scheduleAutomaticRestore(2000);
     return verified;
   }catch(error){
     if(response){try{await response.complete('fail');}catch(_e){}}
@@ -71,3 +103,5 @@ window.worldPaymentProviders??={};
 window.worldPaymentProviders.google_play=provider;
 window.worldPaymentCheckout=provider;
 window.orvunoGooglePlayBilling=provider;
+window.addEventListener('world:user-login',()=>scheduleAutomaticRestore(250),{passive:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>scheduleAutomaticRestore(500),{once:true});else scheduleAutomaticRestore(500);
