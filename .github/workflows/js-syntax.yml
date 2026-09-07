@@ -6,6 +6,7 @@ on:
       - main
       - 'repair/**'
       - 'qa/**'
+      - 'release/**'
   pull_request:
 
 jobs:
@@ -24,14 +25,19 @@ jobs:
             echo "Checking $file"
             node --check "$file"
           done < <(find js api tests -type f \( -name '*.js' -o -name '*.mjs' \) -print0)
-      - name: Check Google Play Edge Function TypeScript syntax
+      - name: Check store Edge Function TypeScript syntax
         shell: bash
-        run: node --experimental-strip-types --check supabase/functions/world-google-play/index.ts
+        run: |
+          node --experimental-strip-types --check supabase/functions/world-google-play/index.ts
+          node --experimental-strip-types --check supabase/functions/world-amazon-iap/index.ts
       - name: Run Google Play repair regression tests
         shell: bash
         run: |
           node tests/google-play-repair.test.mjs
           node tests/google-play-user-activation.test.mjs
+      - name: Run Amazon Appstore runtime regression tests
+        shell: bash
+        run: node tests/amazon-runtime.test.mjs
       - name: Run pre-release content, auth and help regression tests
         shell: bash
         run: node tests/pre-release-qa-content.test.mjs
