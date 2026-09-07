@@ -46,6 +46,28 @@ input,select,textarea{
   [data-orvuno-payment-overlay]{
     padding:max(10px,var(--orvuno-safe-top)) max(10px,var(--orvuno-safe-right)) max(10px,var(--orvuno-safe-bottom)) max(10px,var(--orvuno-safe-left)) !important;
   }
+  /* Die freiwillige Spielanleitung muss in App-WebViews vollständig lesbar bleiben. */
+  .orvuno-tutorial-overlay.orvuno-help-overlay{
+    align-items:flex-start !important;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
+  }
+  .orvuno-tutorial-overlay .orvuno-help-card{
+    width:100% !important;
+    max-height:none !important;
+    margin:auto 0 !important;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    padding-bottom:max(18px,calc(var(--orvuno-safe-bottom) + 12px)) !important;
+  }
+  .orvuno-tutorial-overlay .orvuno-tutorial-actions{
+    position:sticky !important;
+    bottom:calc(-1 * max(18px,var(--orvuno-safe-bottom))) !important;
+    z-index:3;
+    padding:12px 0 max(18px,var(--orvuno-safe-bottom));
+    background:#101a2b;
+  }
 }
 @media (display-mode:standalone){
   body{user-select:none;}
