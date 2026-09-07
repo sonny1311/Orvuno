@@ -7,6 +7,7 @@ async function edge(action,data={}){const a=api(),token=await a.ensureAccessToke
 export async function beginStripePurchase({sku}={}){
  assertCheckoutContext();
  if(!sku)throw new Error('Ungültiges Kaufprodukt');
+ if(window.orvunoAppBridge?.isNativeApp)throw new Error('Externe Zahlungen sind in der Store-App deaktiviert');
  const result=await edge('stripe_checkout',{sku});
  const environment=result?.environment,sessionId=String(result?.sessionId||''),prefix=environment==='live'?'cs_live_':environment==='test'?'cs_test_':'';
  if(!prefix||!sessionId.startsWith(prefix)||!result?.url)throw new Error('Stripe-Checkout konnte nicht sicher gestartet werden');
@@ -56,6 +57,7 @@ async function refreshEntitlements(){
 }
 
 export async function verifyStripeReturn(){
+ if(window.orvunoAppBridge?.isNativeApp)return null;
  let url;
  try{url=new URL(location.href);}catch(_e){return null;}
  const state=url.searchParams.get('payment');
@@ -101,11 +103,13 @@ export async function verifyStripeReturn(){
 }
 
 function install(){
+ if(window.orvunoAppBridge?.isNativeApp)return false;
  window.worldPaymentProviders??={};
  const provider={id:'stripe',label:'Stripe',beginCoinPurchase,beginPremiumPurchase,begin:beginStripePurchase,verifyReturn:verifyStripeReturn};
  window.worldPaymentProviders.stripe=provider;
  window.worldPaymentCheckout=provider;
  const run=()=>verifyStripeReturn().catch(()=>{});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else queueMicrotask(run);
+ return true;
 }
 if(typeof window!=='undefined')install();
