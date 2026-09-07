@@ -1,4 +1,5 @@
-// ORVUNO – öffentliche Spielinformationen und Rechtliches bleiben jederzeit erreichbar.
+// ORVUNO – öffentliche Spielinformationen und Rechtliches bleiben erreichbar,
+// ohne im Spiel dauerhaft Inhalte zu verdecken.
 const PUBLIC_URLS=Object.freeze({
   guide:'/spielanleitung.html',
   faq:'/faq.html',
@@ -19,24 +20,43 @@ function open(section){
 }
 function externalLink(label,href){
   const a=document.createElement('a');a.textContent=label;a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.dataset.footerLink=label;
-  Object.assign(a.style,{border:'0',background:'transparent',color:'#9eacc0',padding:'2px 4px',cursor:'pointer',fontSize:'12px',textDecoration:'none',fontFamily:'inherit'});
+  Object.assign(a.style,{border:'0',background:'transparent',color:'#9eacc0',padding:'5px 6px',cursor:'pointer',fontSize:'12px',textDecoration:'none',fontFamily:'inherit',display:'block'});
   a.onmouseenter=()=>a.style.color='#fff';a.onmouseleave=()=>a.style.color='#9eacc0';return a;
 }
 function footerItem(label,section){
   if(PUBLIC_URLS[section])return externalLink(label,PUBLIC_URLS[section]);
   const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.footerLink=label;
-  Object.assign(b.style,{border:'0',background:'transparent',color:'#9eacc0',padding:'2px 4px',cursor:'pointer',fontSize:'12px',textDecoration:'none',fontFamily:'inherit'});
+  Object.assign(b.style,{border:'0',background:'transparent',color:'#9eacc0',padding:'5px 6px',cursor:'pointer',fontSize:'12px',textDecoration:'none',fontFamily:'inherit',display:'block',width:'100%',textAlign:'left'});
   b.onmouseenter=()=>b.style.color='#fff';b.onmouseleave=()=>b.style.color='#9eacc0';b.onclick=()=>open(section);return b;
 }
+const ITEMS=[['Hilfe','help'],['Spielanleitung','guide'],['FAQ','faq'],['Aktuelles','updates'],['Impressum','imprint'],['Datenschutz','privacy'],['Konto löschen','accountDeletion'],['AGB','legal']];
+
+function stylePublicFooter(footer){
+  Object.assign(footer.style,{position:'relative',left:'auto',right:'auto',bottom:'auto',zIndex:'1',display:'flex',justifyContent:'center',alignItems:'center',gap:'14px',flexWrap:'wrap',padding:'9px 16px',marginTop:'18px',background:'rgba(5,11,20,.94)',borderTop:'1px solid #1d2b40',fontFamily:'Arial,sans-serif',fontSize:'12px',color:'#8291a6',width:'100%',boxSizing:'border-box'});
+  for(const [label,section] of ITEMS)footer.append(footerItem(label,section));
+}
+
+function styleAppFooter(footer){
+  Object.assign(footer.style,{position:'fixed',left:'8px',right:'auto',bottom:'calc(92px + env(safe-area-inset-bottom, 0px))',zIndex:'8990',display:'block',padding:'0',margin:'0',background:'transparent',border:'0',fontFamily:'Arial,sans-serif',fontSize:'12px',color:'#8291a6',width:'auto'});
+  const toggle=document.createElement('button');
+  toggle.type='button';toggle.textContent='ℹ Info';toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Informationen und Rechtliches öffnen');
+  Object.assign(toggle.style,{border:'1px solid #31445e',borderRadius:'999px',background:'rgba(8,18,32,.94)',color:'#aab8cb',padding:'7px 10px',fontSize:'11px',fontWeight:'800',cursor:'pointer',boxShadow:'0 5px 18px rgba(0,0,0,.28)'});
+  const panel=document.createElement('div');panel.hidden=true;
+  Object.assign(panel.style,{position:'absolute',left:'0',bottom:'38px',width:'min(260px,calc(100vw - 16px))',maxHeight:'50vh',overflow:'auto',padding:'8px',border:'1px solid #2d405b',borderRadius:'12px',background:'rgba(5,11,20,.98)',boxShadow:'0 14px 40px rgba(0,0,0,.5)'});
+  for(const [label,section] of ITEMS)panel.append(footerItem(label,section));
+  toggle.onclick=e=>{e.preventDefault();e.stopPropagation();panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',panel.hidden?'false':'true');};
+  footer.append(toggle,panel);
+}
+
 function mountFooter(){
   removeTopLinks();
   let footer=document.getElementById('orvuno-footer');
-  if(footer)return footer;
-  footer=document.createElement('footer');footer.id='orvuno-footer';
-  Object.assign(footer.style,{position:'fixed',left:'0',right:'0',bottom:'0',zIndex:'9000',display:'flex',justifyContent:'center',alignItems:'center',gap:'14px',flexWrap:'wrap',padding:'7px 16px',background:'rgba(5,11,20,.94)',borderTop:'1px solid #1d2b40',fontFamily:'Arial,sans-serif',fontSize:'12px',color:'#8291a6'});
-  const items=[['Hilfe','help'],['Spielanleitung','guide'],['FAQ','faq'],['Aktuelles','updates'],['Impressum','imprint'],['Datenschutz','privacy'],['Konto löschen','accountDeletion'],['AGB','legal']];
-  for(const [label,section] of items)footer.append(footerItem(label,section));
-  document.body.append(footer);return footer;
+  if(!footer){footer=document.createElement('footer');footer.id='orvuno-footer';document.body.append(footer);}
+  const mode=document.documentElement.classList.contains('orvuno-authenticated')?'app':'public';
+  if(footer.dataset.mode===mode)return footer;
+  footer.dataset.mode=mode;footer.replaceChildren();
+  if(mode==='app')styleAppFooter(footer);else stylePublicFooter(footer);
+  return footer;
 }
 function mountAuthPublicLinks(){
   if(document.documentElement.classList.contains('orvuno-authenticated'))return;
@@ -53,8 +73,10 @@ function mountAuthPublicLinks(){
 }
 function install(){
   mountFooter();mountAuthPublicLinks();
-  const observer=new MutationObserver(()=>{removeTopLinks();mountAuthPublicLinks();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
-  window.addEventListener('beforeunload',()=>observer.disconnect(),{once:true});
+  const observer=new MutationObserver(()=>{mountFooter();mountAuthPublicLinks();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  const closePanel=e=>{const footer=document.getElementById('orvuno-footer');if(!footer||footer.contains(e.target))return;const panel=footer.querySelector('div');const toggle=footer.querySelector('button[aria-expanded]');if(panel&&!panel.hidden){panel.hidden=true;toggle?.setAttribute('aria-expanded','false');}};
+  document.addEventListener('click',closePanel);
+  window.addEventListener('beforeunload',()=>{observer.disconnect();document.removeEventListener('click',closePanel);},{once:true});
 }
 if(typeof window!=='undefined'){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
