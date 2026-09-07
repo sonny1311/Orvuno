@@ -7,6 +7,8 @@ const index=await read('index.html');
 const auth=await read('js/core/AccountAuthDialog.js');
 const gate=await read('js/core/GameAccessGate.js');
 const play=await read('js/core/GooglePlayBillingIntegration.js');
+const privacy=await read('datenschutz.html');
+const footer=await read('js/core/FooterInformationLinksIntegration.js');
 
 const requiredTopics=[
   'overview','procurement','inbound','warehouse','staff','machines','production','bottling',
@@ -48,6 +50,14 @@ assert.match(auth,/resetPassword\(null,password\.value\)/,'Passwort wird nach Re
 assert.match(auth,/withBusy\(button,task\)/,'Zentraler Double-Submit-Schutz im Auth-Dialog fehlt');
 assert.match(auth,/this\.render\(shell,"login"\)/,'Registrierung rendert nach Bestätigung nicht in den vollständigen Auth-Shell zurück');
 assert.doesNotMatch(auth,/this\.render\(panel,"login"\)/,'Alter fehlerhafter Register→Login-Renderpfad ist noch vorhanden');
+assert.match(auth,/privacyBox\.required=true/,'Datenschutz-Checkbox ist nicht verpflichtend');
+assert.match(auth,/privacyBox\.dataset\.orvunoPrivacyConsent="1"/,'Datenschutz-Checkbox ist nicht eindeutig markiert');
+assert.match(auth,/privacyLink\.href="\/datenschutz\.html"/,'Datenschutzerklärung ist in der Registrierung nicht verlinkt');
+assert.match(auth,/if\(!termsBox\.checked\|\|!privacyBox\.checked\)/,'Registrierung kann ohne Datenschutz-Zustimmung fortfahren');
+assert.match(privacy,/<title>Datenschutzerklärung – ORVUNO<\/title>/,'Öffentliche Datenschutzerklärung fehlt oder ist falsch benannt');
+assert.match(privacy,/Spielerkonto und Anmeldung/,'Datenschutzerklärung beschreibt Kontodaten nicht');
+assert.match(privacy,/Hosting und Datenbank/,'Datenschutzerklärung beschreibt technische Dienstleister nicht');
+assert.match(footer,/PRIVACY_URL='\/datenschutz\.html'/,'Footer verweist nicht direkt auf die Datenschutzerklärung');
 
 assert.match(gate,/recoveryPending\(\)/,'Access-Gate erkennt Recovery-Session nicht');
 assert.match(gate,/if\(this\.recoveryPending\(\)\) return false/,'Recovery-Session kann weiterhin Spielzugang erhalten');
@@ -60,4 +70,4 @@ assert.match(play,/restoreGooglePlayPurchases\(\)/,'Play-Restore verwendet nicht
 assert.match(play,/edge\('verify_purchase'/,'Play-Käufe werden nicht serverseitig verifiziert');
 assert.doesNotMatch(play,/coin_wallet|balance\s*\+=|premiumUntil\s*=/i,'Play-Client enthält verdächtige clientseitige Entitlement-Gutschrift');
 
-console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP TESTS ERFOLGREICH');
+console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP/PRIVACY TESTS ERFOLGREICH');
