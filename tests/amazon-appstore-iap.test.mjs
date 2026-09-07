@@ -16,6 +16,11 @@ assert.match(amazon,/premium_1m:'orvuno_premium_4w'/,'Amazon first premium offer
 assert.ok(!amazon.includes("premium_1m:'orvuno_premium_1m'"),'Amazon must not request the nonexistent 1-month SKU');
 assert.match(amazon,/OrvunoAmazonIap\|\|window\.OrvunoAmazonIAP/,'Both deployed native bridge spellings must remain supported');
 assert.ok(amazon.includes('/functions/v1/world-amazon-iap'),'Amazon receipts must be verified by the server');
+assert.ok(!amazon.includes("if(!productCache.get(amazonSku))throw"),'Amazon checkout must not be blocked by missing catalog metadata');
+assert.match(amazon,/button\.disabled=false/,'Mapped Amazon purchase buttons must remain clickable while prices load');
+assert.match(amazon,/bridge\.purchase\(amazonSku\)/,'Amazon checkout must call the generic native bridge directly');
+assert.match(amazon,/orvuno:amazon-iap-user/,'Amazon catalog must refresh after the native Amazon user becomes available');
+assert.match(amazon,/Über Amazon kaufen/,'Amazon must show a usable fallback label while catalog metadata is unavailable');
 assert.match(css,/@media\(max-width:760px\)\{\.sitebar\{position:static\}/,'Mobile public pages must not lose reading space to a sticky header');
 assert.ok(gameId.includes("GAME_ID_ENDPOINT='world-game-id-auth'"),'Game-ID access must remain enabled');
 assert.ok(gameId.includes('ORV-${compact.slice(0,5)}'),'Game-ID format must remain ORV-XXXXX-XXXXX-XXXXX-XXXXX');
