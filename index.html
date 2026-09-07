@@ -8,7 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="application-name" content="ORVUNO">
-  <title>ORVUNO</title>
+  <title>ORVUNO – Wirtschaftssimulation mit Lieferketten, Produktion und Handel</title>
+  <meta name="description" content="ORVUNO ist eine fortlaufende Wirtschaftssimulation: Betriebe aufbauen, Rohstoffe einkaufen, Lager und Personal planen, produzieren, Kundenaufträge erfüllen, liefern und expandieren.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="app-icon.svg">
@@ -19,9 +20,14 @@
     html:not(.orvuno-authenticated) #worldApp,
     html:not(.orvuno-authenticated) #world-main-nav,
     html:not(.orvuno-authenticated) .android-download-fab{display:none!important;pointer-events:none!important}
+    html.orvuno-authenticated #orvuno-public-context{display:none!important}
     .android-download-fab{position:fixed;right:18px;bottom:18px;z-index:99990;display:inline-flex;align-items:center;gap:9px;padding:12px 16px;border:1px solid #d7a62b;border-radius:999px;background:#142033;color:#fff;text-decoration:none;font:800 14px/1 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35)}
     .android-download-fab:hover{background:#1a2a42}
-    @media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}}
+    #orvuno-public-context{min-height:100vh;box-sizing:border-box;padding:clamp(28px,5vw,70px) max(20px,calc((100vw - 1180px)/2));background:radial-gradient(circle at 50% 0,#1a2a42 0,#08111e 44%,#03070c 100%);color:#eef3f8;font-family:Arial,sans-serif}
+    #orvuno-public-context *{box-sizing:border-box}#orvuno-public-context .public-hero{max-width:900px;margin:0 auto 42px;text-align:center}#orvuno-public-context .public-kicker{color:#f4bd43;font-weight:900;letter-spacing:2px;text-transform:uppercase;font-size:13px}#orvuno-public-context h1{margin:12px 0 16px;font-size:clamp(36px,7vw,64px);line-height:1.02}#orvuno-public-context .public-lead{margin:0 auto;max-width:820px;color:#d6deea;font-size:clamp(17px,2.4vw,21px);line-height:1.65}
+    #orvuno-public-context .public-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0 42px}#orvuno-public-context article{padding:22px;border:1px solid #304159;border-radius:14px;background:rgba(15,27,45,.86);box-shadow:0 12px 34px rgba(0,0,0,.16)}#orvuno-public-context article h2{margin:0 0 10px;font-size:20px;color:#f4bd43}#orvuno-public-context article p,#orvuno-public-context article li{color:#d7e0eb;line-height:1.62}#orvuno-public-context article ul{padding-left:20px;margin-bottom:0}
+    #orvuno-public-context .public-section{max-width:1000px;margin:0 auto 34px;padding:26px;border:1px solid #2c3c54;border-radius:16px;background:rgba(8,18,32,.82)}#orvuno-public-context .public-section h2{margin:0 0 14px;font-size:clamp(24px,4vw,32px)}#orvuno-public-context .public-section p{color:#d7e0eb;line-height:1.7;margin:10px 0}#orvuno-public-context .public-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}#orvuno-public-context .public-step{padding:14px;border-radius:10px;background:#101d30;border:1px solid #2d405c;color:#e8eef5;font-weight:700;line-height:1.4}#orvuno-public-context .public-note{max-width:1000px;margin:0 auto;padding:18px 22px;border-left:4px solid #f4bd43;border-radius:10px;background:rgba(244,189,67,.08);color:#dbe4ef;line-height:1.65}
+    @media (max-width:850px){#orvuno-public-context .public-grid{grid-template-columns:1fr 1fr}#orvuno-public-context .public-flow{grid-template-columns:1fr 1fr}}@media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}#orvuno-public-context{padding:30px 16px 54px}#orvuno-public-context .public-grid{grid-template-columns:1fr}#orvuno-public-context .public-flow{grid-template-columns:1fr}#orvuno-public-context article,#orvuno-public-context .public-section{padding:19px}}
   </style>
   <script>
     (()=>{
@@ -50,6 +56,46 @@
   </script>
 </head>
 <body>
+  <main id="orvuno-public-context" aria-label="ORVUNO Spielbeschreibung">
+    <header class="public-hero">
+      <div class="public-kicker">Wirtschaftssimulation · Aufbau · Lieferketten</div>
+      <h1>ORVUNO</h1>
+      <p class="public-lead">ORVUNO ist eine fortlaufende Wirtschaftssimulation, in der du einen Betrieb nicht nur anklickst, sondern als zusammenhängendes Unternehmen führst. Einkauf, Lager, Personal, Maschinen, Produktion, Abfüllung, Kundenaufträge, Logistik, Markt und Finanzierung greifen ineinander. Deine Aufgabe ist es, aus begrenztem Kapital und begrenzten Kapazitäten eine stabile, profitable Wirtschaft aufzubauen.</p>
+    </header>
+
+    <section class="public-section">
+      <h2>So funktioniert der Wirtschaftskreislauf</h2>
+      <p>Jeder erfolgreiche Ablauf beginnt vor der eigentlichen Produktion. Du prüfst, welche Rohstoffe und Verpackungen ein Produkt benötigt, vergleichst Lieferanten und bestellst die passende Menge. Bestellte Ware ist zunächst unterwegs und wird erst nach ihrer Ankunft über den Wareneingang in den richtigen Lagerbereich eingebucht. Danach planst du den Produktionsauftrag, kontrollierst Materialbedarf, Personal und Maschinenkapazität und startest die Herstellung. Bei Produkten mit separater Abfüllung folgt anschließend ein eigener Schritt mit Flaschen, Verschlüssen, Etiketten und Abfüllanlage.</p>
+      <p>Verkaufsfähige Fertigware kann für Kundenaufträge eingesetzt werden. Dabei entscheidest du bewusst, welche Menge du auslieferst. Lieferfristen, verfügbare Ware, Marktpreise und Logistikkosten beeinflussen, welcher Auftrag zuerst sinnvoll ist. Erlöse fließen wieder in Einkauf, Personal, Maschinen, Lagerkapazität, Ausbau oder neue Betriebe.</p>
+      <div class="public-flow" aria-label="ORVUNO Ablauf">
+        <div class="public-step">1. Einkauf planen</div><div class="public-step">2. Lieferung einlagern</div><div class="public-step">3. Produzieren & abfüllen</div><div class="public-step">4. Auftrag ausliefern</div>
+      </div>
+    </section>
+
+    <section class="public-grid" aria-label="Spielbereiche">
+      <article><h2>📦 Einkauf & Lager</h2><p>Lieferanten unterscheiden sich unter anderem bei Preis, Qualität, Entfernung und Lieferzeit. Große Bestellungen können wirtschaftlich wirken, binden aber Geld und Lagerplatz. Im Lager siehst du getrennt, welche Rohstoffe, Verpackungen und Fertigwaren wirklich verfügbar sind und wie viel freie Kapazität noch vorhanden ist.</p></article>
+      <article><h2>👥 Personal & Maschinen</h2><p>Produktion braucht die richtige Kombination aus Qualifikation und Technik. Beschäftigte erzeugen laufende Kosten, während Maschinen einen bestimmten Durchsatz liefern und während eines Auftrags belegt sein können. Zusätzliche Kapazität lohnt sich deshalb nur, wenn Materialversorgung, Lager und Absatz ebenfalls mithalten.</p></article>
+      <article><h2>🏭 Produktion & Abfüllung</h2><p>Vor dem Start zeigt ORVUNO, welche Mengen an Material benötigt werden, welche Maschine erforderlich ist und wie lange der Vorgang voraussichtlich dauert. Ein geplanter Auftrag ist noch keine laufende Produktion. Erst beim Start werden die aktuellen Voraussetzungen erneut geprüft und die erforderlichen Bestände eingesetzt.</p></article>
+      <article><h2>📋 Kundenaufträge & Lieferung</h2><p>Aufträge verbinden deine Produktion mit konkreter Nachfrage. Du achtest auf Produkt, Menge, Preis, offene Restmenge und Lieferfrist. Bei der Auslieferung legst du die tatsächliche Menge fest; das Spiel verwendet nicht automatisch deinen gesamten Fertigwarenbestand. Teil- und Gesamtlieferungen lassen sich so gezielt planen.</p></article>
+      <article><h2>📈 Markt & Finanzen</h2><p>Ein hoher Verkaufspreis bedeutet noch keinen guten Gewinn. Einkauf, Produktion, Personal, Maschinen, Lager, Logistik und Finanzierung bestimmen gemeinsam die Wirtschaftlichkeit. Marktpreise und Nachfrage können sich verändern. Kredite schaffen Spielraum, müssen aber aus späteren Erträgen einschließlich Zinsen und Rückzahlung getragen werden.</p></article>
+      <article><h2>🏢 Ausbau & mehrere Betriebe</h2><p>Mit wachsendem Unternehmen entstehen neue Engpässe. Du entscheidest, ob mehr Lager, eine stärkere Maschine, zusätzliches Personal oder ein weiterer Betrieb sinnvoller ist. Jeder Betrieb besitzt seinen eigenen operativen Zustand. Beim Wechsel zwischen vorhandenen Betrieben wechselst du die aktive Firma – ein normaler Betriebswechsel ist kein Kaufvorgang.</p></article>
+    </section>
+
+    <section class="public-section">
+      <h2>Strategie statt Leerlauf</h2>
+      <p>ORVUNO ist darauf ausgelegt, dass Entscheidungen Folgen für die nächsten Schritte haben. Wer zu viel einkauft, kann Liquidität und Lager blockieren. Wer zu wenig einkauft, lässt Maschinen und Personal ungenutzt. Wer zu früh ausbaut, trägt Kosten ohne ausreichende Auslastung. Wer nur auf Umsatz schaut, übersieht möglicherweise Finanzierung und laufende Verpflichtungen. Eine gute Strategie plant deshalb vom Kundenbedarf rückwärts: Welche Ware wird wann benötigt, welche Produktionszeit ist erforderlich, welche Materialien müssen vorher eintreffen und welche Reserve bleibt danach im Betrieb?</p>
+      <p>Die einzelnen Spielflächen besitzen eine kontextbezogene <strong>?</strong>-Hilfe. Dort werden der jeweilige Vorgang, Voraussetzungen, Reihenfolge, Kostenwirkung und typische Engpässe erklärt. Beim ersten Spielstart führt ein Tutorial durch den kompletten Wirtschaftskreislauf; später kann es jederzeit im Spielerprofil erneut geöffnet werden.</p>
+    </section>
+
+    <section class="public-section">
+      <h2>Coins, Premium und fairer Spielstand</h2>
+      <p>Coins und Premium sind kontobezogene Zusatzsysteme und vom normalen Geld eines Betriebs getrennt. In der Google-Play-App werden entsprechende Käufe ausschließlich über Google Play Billing abgewickelt. Eine Gutschrift erfolgt erst nach serverseitiger Prüfung des Kaufbelegs. Die eigentliche Wirtschaft – Rohstoffe, Lager, Produktionsmengen, Aufträge und Betriebsgeld – bleibt Teil des Spiels und wird über den gespeicherten Accountzustand wiederhergestellt.</p>
+      <p>Für einen stabilen Fortschritt meldest du dich mit deinem ORVUNO-Konto an. Dadurch kann der Spielstand zugeordnet und nach einer späteren Sitzung wieder geladen werden. Registrierung und Anmeldung dienen deshalb nicht nur als Zugangssperre, sondern als Grundlage für den persistenten Wirtschaftsstand deines Unternehmens.</p>
+    </section>
+
+    <div class="public-note"><strong>Spielprinzip:</strong> ORVUNO belohnt keine einzelne „richtige“ Schaltfläche. Entscheidend ist, dass Einkauf, Lager, Personal, Maschinen, Produktion, Abfüllung, Aufträge, Lieferung und Finanzierung als zusammenhängende Kette funktionieren. Genau dafür stehen Tutorial und die Hilfe direkt an den Spielflächen zur Verfügung.</div>
+  </main>
+
   <div id="worldApp"></div>
   <a class="android-download-fab" data-i18n="android.download" href="https://github.com/sonny1311/worldproject/releases/download/android-v1.0.0/app-release-signed.apk" download>📱 ORVUNO für Android herunterladen</a>
   <script type="module" src="js/core/OrvunoI18nIntegration.js"></script>
@@ -61,6 +107,7 @@
   <script type="module" src="js/core/BusinessSwitchPaymentGuardIntegration.js"></script>
   <script type="module" src="js/core/StorePaymentProviderBootstrap.js"></script>
   <script type="module" src="js/core/GooglePlayPriceUiIntegration.js"></script>
+  <script type="module" src="js/core/ContextualHelpAndTutorialIntegration.js"></script>
   <script type="module" src="js/app-loader.js"></script>
   <script type="module" src="js/core/PlayerCommunicationAndInfoHubIntegration.js"></script>
   <script type="module" src="js/core/PlayerInfoHubNavBridge.js"></script>
