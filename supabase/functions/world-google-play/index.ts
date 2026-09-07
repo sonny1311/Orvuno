@@ -6,6 +6,20 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,
 const env=(name:string)=>Deno.env.get(name)?.trim()||"";
 const PACKAGE_NAME=env("GOOGLE_PLAY_PACKAGE_NAME")||"de.nadena.orvuno";
 const PLAY_SCOPE="https://www.googleapis.com/auth/androidpublisher";
+const DEFAULT_SKU_MAP:Readonly<Record<string,string>>=Object.freeze({
+  coins_100:"orvuno_coins_100",
+  coins_550:"orvuno_coins_550",
+  coins_1200:"orvuno_coins_1200",
+  coins_2600:"orvuno_coins_2600",
+  coins_6000:"orvuno_coins_6000",
+  coins_13000:"orvuno_coins_13000",
+  coins_26000:"orvuno_coins_26000",
+  coins_50000:"orvuno_coins_50000",
+  premium_1m:"orvuno_premium_1m",
+  premium_3m:"orvuno_premium_3m",
+  premium_6m:"orvuno_premium_6m",
+  premium_12m:"orvuno_premium_12m"
+});
 
 function base64Url(input:Uint8Array|string){
   const bytes=typeof input==="string"?new TextEncoder().encode(input):input;
@@ -41,15 +55,14 @@ async function googleAccessToken(){
 }
 function skuMap(){
   const raw=env("GOOGLE_PLAY_SKU_MAP_JSON");
-  if(!raw)throw new Error("Google Play SKU mapping is not configured");
+  if(!raw)return {...DEFAULT_SKU_MAP};
   const parsed=JSON.parse(raw);
   if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))throw new Error("Google Play SKU mapping is invalid");
-  const out:Record<string,string>={};
+  const out:Record<string,string>={...DEFAULT_SKU_MAP};
   for(const [internalSku,playSku] of Object.entries(parsed)){
     const a=String(internalSku||"").trim(),b=String(playSku||"").trim();
     if(a&&b&&a.length<=150&&b.length<=150)out[a]=b;
   }
-  if(!Object.keys(out).length)throw new Error("Google Play SKU mapping is empty");
   return out;
 }
 async function sha256Hex(value:string){
