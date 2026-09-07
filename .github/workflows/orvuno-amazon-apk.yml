@@ -40,18 +40,19 @@ jobs:
           APK=android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
           test -f "$APK"
           BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
-          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='2' versionName='1.0.2'"
+          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='3' versionName='1.0.2'"
           printf '%s\n' "$BADGING" | grep "sdkVersion:'21'"
           printf '%s\n' "$BADGING" | grep "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q 'com.amazon.device.iap.ResponseReceiver'
           unzip -l "$APK" | grep -q 'assets/AppstoreAuthenticationKey.pem'
-          echo 'MIN_SDK=21' | tee amazon-build.txt
+          echo 'VERSION_CODE=3' | tee amazon-build.txt
+          echo 'MIN_SDK=21' | tee -a amazon-build.txt
           echo 'TARGET_SDK=36' | tee -a amazon-build.txt
           echo 'IAP_KEY_PRESENT=yes' | tee -a amazon-build.txt
           sha256sum "$APK" | tee -a amazon-build.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ORVUNO-Amazon-1.0.2-code2-unsigned
+          name: ORVUNO-Amazon-1.0.2-code3-unsigned
           path: |
             android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
             amazon-build.txt
