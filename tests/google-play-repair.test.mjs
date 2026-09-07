@@ -105,13 +105,15 @@ test('premium UI uses the active one-month Google Play SKU',()=>{
   assert(!premiumUi.includes("id:'premium_4w'"));
 });
 
-test('password recovery callbacks are handled before game access is granted',()=>{
+test('legacy password recovery support is isolated from passwordless game-ID access',()=>{
   assert(authClient.includes('RECOVERY_FLAG_KEY'));
   assert(authClient.includes('preparePasswordRecovery()'));
   assert(authClient.includes('grant_type=pkce'));
   assert(authClient.includes('isPasswordRecovery()'));
-  assert(accessGate.includes('preparePasswordRecovery?.()'));
-  assert(accessGate.includes('isPasswordRecovery?.()'));
+  assert(accessGate.includes('openGameIdAccess()'));
+  assert(accessGate.includes('resumeLocalPlayer()'));
+  assert(!accessGate.includes('preparePasswordRecovery?.()'));
+  assert(!accessGate.includes('isPasswordRecovery?.()'));
 });
 
 test('Google Play edge verifies purchase server-side and uses hashed token idempotency key',()=>{
