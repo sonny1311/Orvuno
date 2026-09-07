@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'de.nadena.orvuno'
+    compileSdk 35
+
+    signingConfigs {
+        release {
+            def ks = System.getenv('ORVUNO_AMAZON_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('ORVUNO_AMAZON_STORE_PASSWORD')
+                keyAlias System.getenv('ORVUNO_AMAZON_KEY_ALIAS')
+                keyPassword System.getenv('ORVUNO_AMAZON_KEY_PASSWORD')
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId 'de.nadena.orvuno'
+        minSdk 22
+        targetSdk 30
+        versionCode 6
+        versionName '1.0.1'
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField 'boolean', 'AMAZON_IAP_SANDBOX', 'true'
+        }
+        release {
+            minifyEnabled false
+            buildConfigField 'boolean', 'AMAZON_IAP_SANDBOX', 'false'
+            if (System.getenv('ORVUNO_AMAZON_KEYSTORE')) {
+                signingConfig signingConfigs.release
+            }
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    lint {
+        disable 'ExpiredTargetSdkVersion'
+    }
+}
+
+dependencies {
+    implementation 'com.amazon.device:amazon-appstore-sdk:3.0.9'
+}
