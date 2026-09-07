@@ -1,0 +1,107 @@
+name: ORVUNO AAB 1.0.3
+
+on:
+  push:
+    branches:
+      - build/orvuno-1.0.3-aab
+    paths:
+      - 'android-build/**'
+      - '.github/workflows/orvuno-aab-1.0.3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 platform
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Generate clean ORVUNO Android project
+        run: bash android-build/build-orvuno-1.0.3.sh android-build/orvuno-1.0.3
+
+      - name: Validate native billing configuration
+        run: |
+          set -euo pipefail
+          grep -q "applicationId 'de.nadena.orvuno'" android-build/orvuno-1.0.3/app/build.gradle
+          grep -q 'versionCode 6' android-build/orvuno-1.0.3/app/build.gradle
+          grep -q "versionName '1.0.3'" android-build/orvuno-1.0.3/app/build.gradle
+          grep -q 'minSdk 23' android-build/orvuno-1.0.3/app/build.gradle
+          grep -q 'targetSdk 36' android-build/orvuno-1.0.3/app/build.gradle
+          grep -q 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.2' android-build/orvuno-1.0.3/app/build.gradle
+          grep -q 'com.google.androidbrowserhelper:billing:1.2.0' android-build/orvuno-1.0.3/app/build.gradle
+          grep -q 'com.android.vending.BILLING' android-build/orvuno-1.0.3/app/src/main/AndroidManifest.xml
+          grep -q 'com.google.androidbrowserhelper.playbilling.provider.PaymentActivity' android-build/orvuno-1.0.3/app/src/main/AndroidManifest.xml
+          grep -q 'com.google.androidbrowserhelper.playbilling.provider.PaymentService' android-build/orvuno-1.0.3/app/src/main/AndroidManifest.xml
+          grep -q 'android.support.customtabs.trusted.LAUNCHING_BROWSER' android-build/orvuno-1.0.3/app/src/main/AndroidManifest.xml
+          grep -q 'com.android.chrome' android-build/orvuno-1.0.3/app/src/main/AndroidManifest.xml
+          grep -q 'DigitalGoodsRequestHandler' android-build/orvuno-1.0.3/app/src/main/java/de/nadena/orvuno/DelegationService.java
+
+      - name: Build release AAB and verification APK
+        working-directory: android-build/orvuno-1.0.3
+        run: gradle --no-daemon :app:bundleRelease :app:assembleRelease --stacktrace
+
+      - name: Create dependency and manifest report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-output
+          cp android-build/orvuno-1.0.3/app/build/outputs/bundle/release/app-release.aab release-output/ORVUNO-1.0.3-code6-unsigned.aab
+          cd android-build/orvuno-1.0.3
+          gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > ../../../release-output/ORVUNO-1.0.3-dependencies.txt
+          cd ../..
+          APK='android-build/orvuno-1.0.3/app/build/outputs/apk/release/app-release-unsigned.apk'
+          ANALYZER="$(find "$ANDROID_HOME" -type f -name apkanalyzer 2>/dev/null | sort | tail -n 1 || true)"
+          {
+            echo 'ORVUNO Android release verification'
+            echo 'versionName=1.0.3'
+            echo 'versionCode=6'
+            echo 'package=de.nadena.orvuno'
+            echo 'minSdk=23'
+            echo 'targetSdk=36'
+            echo 'androidbrowserhelper=2.7.2'
+            echo 'android-browser-helper-billing=1.2.0'
+            echo 'launchingBrowser=com.android.chrome'
+            echo
+            sha256sum release-output/ORVUNO-1.0.3-code6-unsigned.aab
+            echo
+            if [ -n "$ANALYZER" ] && [ -f "$APK" ]; then
+              echo '--- merged APK manifest ---'
+              "$ANALYZER" manifest print "$APK" || true
+            fi
+          } > release-output/ORVUNO-1.0.3-build-report.txt
+          test -s release-output/ORVUNO-1.0.3-code6-unsigned.aab
+          test "$(stat -c%s release-output/ORVUNO-1.0.3-code6-unsigned.aab)" -gt 10000
+          grep -q 'com.google.androidbrowserhelper:billing:1.2.0' release-output/ORVUNO-1.0.3-dependencies.txt
+
+      - name: Upload ORVUNO AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ORVUNO-1.0.3-code6-unsigned
+          path: |
+            release-output/ORVUNO-1.0.3-code6-unsigned.aab
+            release-output/ORVUNO-1.0.3-build-report.txt
+            release-output/ORVUNO-1.0.3-dependencies.txt
+          if-no-files-found: error
+          retention-days: 14
