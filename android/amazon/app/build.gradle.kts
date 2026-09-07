@@ -8,8 +8,8 @@ android {
         applicationId = "de.nadena.orvuno"
         minSdk = 21
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 4
+        versionName = "1.0.4"
     }
 
     buildTypes {
