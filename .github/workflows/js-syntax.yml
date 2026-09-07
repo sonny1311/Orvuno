@@ -1,8 +1,10 @@
-name: JavaScript syntax check
+name: JavaScript syntax and repair checks
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'repair/**'
   pull_request:
 
 jobs:
@@ -13,11 +15,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check every JavaScript file
+      - name: Check JavaScript syntax
         shell: bash
         run: |
           set -euo pipefail
           while IFS= read -r -d '' file; do
             echo "Checking $file"
             node --check "$file"
-          done < <(find js -type f -name '*.js' -print0)
+          done < <(find js api tests -type f \( -name '*.js' -o -name '*.mjs' \) -print0)
+      - name: Check Google Play Edge Function TypeScript syntax
+        shell: bash
+        run: node --experimental-strip-types --check supabase/functions/world-google-play/index.ts
+      - name: Run Google Play repair regression tests
+        shell: bash
+        run: node tests/google-play-repair.test.mjs
