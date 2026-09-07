@@ -22,7 +22,17 @@
     html:not(.orvuno-authenticated) .android-download-fab{display:none!important;pointer-events:none!important}
     .android-download-fab{position:fixed;right:18px;bottom:18px;z-index:99990;display:inline-flex;align-items:center;gap:9px;padding:12px 16px;border:1px solid #d7a62b;border-radius:999px;background:#142033;color:#fff;text-decoration:none;font:800 14px/1 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35)}
     .android-download-fab:hover{background:#1a2a42}
-    @media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}}
+    .orvuno-help-fab{position:fixed;right:16px;top:max(16px,env(safe-area-inset-top));z-index:25050;width:46px;height:46px;border-radius:50%;border:1px solid #d7a62b;background:#142033;color:#f4bd43;font:900 24px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+    .orvuno-help-overlay{position:fixed;inset:0;z-index:25060;background:rgba(2,6,23,.88);display:grid;place-items:center;padding:20px;overflow:auto;color:#f8fafc;font-family:Arial,sans-serif}
+    .orvuno-help-card{width:min(980px,96vw);max-height:88vh;overflow:auto;border:1px solid #40516a;border-radius:18px;background:#0f172a;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:22px}
+    .orvuno-help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px}
+    .orvuno-help-topic{padding:14px;border:1px solid #334155;border-radius:12px;background:#111c30;line-height:1.45}
+    .orvuno-help-topic h3{margin:0 0 8px;color:#f4bd43}
+    .orvuno-help-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    .orvuno-help-actions button{padding:11px 14px;border-radius:9px;border:1px solid #465b78;background:#17243a;color:#fff;font-weight:800;cursor:pointer}
+    .orvuno-login-context{padding:13px 15px;margin:0 0 18px;border:1px solid #36557a;border-radius:10px;background:rgba(19,47,78,.45);color:#dce8f7;font:600 14px/1.45 Arial,sans-serif}
+    .orvuno-login-context strong{color:#f4bd43}
+    @media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}.orvuno-help-fab{right:12px;top:max(12px,env(safe-area-inset-top));width:42px;height:42px}.orvuno-help-card{padding:16px}.orvuno-help-grid{grid-template-columns:1fr}}
   </style>
   <script>
     (()=>{
@@ -71,5 +81,63 @@
   <script type="module" src="js/core/HomeBottlingCallToActionIntegration.js"></script>
   <script type="module" src="js/core/GermanPlayerTextCleanupIntegration.js"></script>
   <script type="module" src="js/core/MobileAppUsabilityIntegration.js"></script>
+  <script>
+    (()=>{
+      const topics=[
+        ['🏠','Start & Dashboard','Hier siehst du Geld, Coins, laufende Vorgänge und wichtige Hinweise. Nutze das Dashboard als Ausgangspunkt für deine nächsten Schritte.'],
+        ['🏢','Betriebe & Ausbau','Du kannst Betriebe eröffnen, ausbauen und später mehrere Unternehmen führen. Jeder Betrieb hat eigene Produktions-, Lager- und Personalbedürfnisse.'],
+        ['📦','Einkauf & Lager','Rohstoffe und Waren brauchen Lagerplatz. Prüfe Bestand, freien Platz und Nachschub, bevor du große Produktionsmengen startest.'],
+        ['⚙️','Produktion','Produktion benötigt passende Maschinen, Personal, Rohstoffe und Zeit. Der Bereitschaftsstatus zeigt dir, was noch fehlt.'],
+        ['🚚','Lieferungen','Verkäufe und Kundenaufträge benötigen verfügbare Ware und je nach Vorgang Transportkapazität. Laufende Lieferungen erscheinen in den Übersichten.'],
+        ['👷','Personal & Maschinen','Mitarbeiter müssen passend eingesetzt werden. Maschinen können ausgelastet, gewartet oder erweitert werden und beeinflussen deine Produktionsleistung.'],
+        ['📈','Markt & Handel','Preise, Angebot und Nachfrage verändern sich. Du kannst Waren und teilweise Coins mit anderen Spielern handeln und deine Marge beobachten.'],
+        ['💶','Finanzen','Firmengeld gehört zum jeweiligen Unternehmen. Einnahmen, Kosten, Ausbau und Lieferungen wirken direkt auf deine Liquidität.'],
+        ['🪙','Coins & Premium','Coins sind eine separate Spielwährung. Damit kannst du vorgesehene Komfort- und Tauschfunktionen nutzen. Premium erweitert Komfortfunktionen, ersetzt aber keine Unternehmensführung.'],
+        ['❓','Hilfe jederzeit','Das Fragezeichen oben rechts bleibt auf Webseite und App verfügbar. Hier kannst du diese Erklärung und das Tutorial jederzeit erneut öffnen.']
+      ];
+      const tutorial=[
+        ['Willkommen bei ORVUNO','Du baust Schritt für Schritt ein Unternehmen auf. Ziel ist nicht schnelles Klicken, sondern eine funktionierende Wirtschaftskette.'],
+        ['1. Betrieb verstehen','Starte im Dashboard und prüfe Geld, Lager, Maschinen und Personal. Wenn ein Bereich rot oder unvollständig ist, behebe ihn zuerst.'],
+        ['2. Rohstoffe beschaffen','Ohne Rohstoffe keine Produktion. Kaufe passend zum Bedarf und behalte den Lagerplatz im Blick.'],
+        ['3. Produzieren','Wähle ein Produkt, stelle sicher, dass Maschine und Mitarbeiter verfügbar sind, und starte die Produktion.'],
+        ['4. Verkaufen & liefern','Fertige Waren kannst du über Kundenaufträge, Märkte oder andere vorgesehene Verkaufskanäle zu Geld machen. Transport und Bestand müssen stimmen.'],
+        ['5. Wachsen','Nutze Gewinne für Lager, Maschinen, Personal und weitere Betriebe. Beobachte laufende Kosten, damit dein Unternehmen liquide bleibt.'],
+        ['Coins & Premium','Coins und Premium sind Zusatzsysteme. Firmengeld verdienst und verwaltest du im Spiel; Coins sind getrennt und werden nur an vorgesehenen Stellen verwendet.']
+      ];
+      const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      function removeOverlay(){document.querySelector('.orvuno-help-overlay')?.remove();}
+      function openHelp(){
+        removeOverlay();
+        const ov=document.createElement('div');ov.className='orvuno-help-overlay';
+        const card=document.createElement('section');card.className='orvuno-help-card';
+        card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start"><div><small style="color:#f4bd43;font-weight:900">ORVUNO HILFE</small><h2 style="margin:5px 0 6px">So funktionieren die Spielbereiche</h2><p style="margin:0;color:#b9c5d6">Kurz erklärt, direkt im Spiel. Diese Hilfe ist in der Webversion und in der App identisch.</p></div><button data-help-close style="border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer">✕</button></div><div class="orvuno-help-grid">${topics.map(([i,t,d])=>`<article class="orvuno-help-topic"><h3>${i} ${esc(t)}</h3><div>${esc(d)}</div></article>`).join('')}</div><div class="orvuno-help-actions"><button data-start-tutorial>▶ Tutorial starten</button><button data-help-close>Schließen</button></div>`;
+        ov.append(card);document.body.append(ov);ov.onclick=e=>{if(e.target===ov)removeOverlay();};card.querySelectorAll('[data-help-close]').forEach(b=>b.onclick=removeOverlay);card.querySelector('[data-start-tutorial]').onclick=()=>{removeOverlay();openTutorial(0);};
+      }
+      function openTutorial(index=0){
+        removeOverlay();
+        const step=tutorial[Math.max(0,Math.min(index,tutorial.length-1))];
+        const ov=document.createElement('div');ov.className='orvuno-help-overlay';
+        const card=document.createElement('section');card.className='orvuno-help-card';card.style.width='min(680px,94vw)';
+        card.innerHTML=`<small style="color:#f4bd43;font-weight:900">TUTORIAL ${index+1}/${tutorial.length}</small><h2 style="margin:8px 0 12px">${esc(step[0])}</h2><p style="font-size:17px;line-height:1.6;color:#dce3ed">${esc(step[1])}</p><div class="orvuno-help-actions"><button data-prev ${index===0?'disabled':''}>Zurück</button>${index<tutorial.length-1?'<button data-next>Weiter</button>':'<button data-finish>Fertig</button>'}<button data-skip>Überspringen</button></div>`;
+        ov.append(card);document.body.append(ov);
+        const prev=card.querySelector('[data-prev]');if(prev)prev.onclick=()=>openTutorial(index-1);
+        const next=card.querySelector('[data-next]');if(next)next.onclick=()=>openTutorial(index+1);
+        const finish=card.querySelector('[data-finish]');if(finish)finish.onclick=()=>{try{localStorage.setItem('orvuno.tutorial.completed.v1','1');}catch{}removeOverlay();};
+        card.querySelector('[data-skip]').onclick=()=>{try{localStorage.setItem('orvuno.tutorial.completed.v1','1');}catch{}removeOverlay();};
+      }
+      function installFab(){if(document.querySelector('.orvuno-help-fab'))return;const b=document.createElement('button');b.className='orvuno-help-fab';b.type='button';b.setAttribute('aria-label','Hilfe und Tutorial');b.title='Hilfe und Tutorial';b.textContent='?';b.onclick=openHelp;document.body.append(b);}
+      function injectLoginContext(){
+        document.querySelectorAll('h1').forEach(h=>{
+          if(!/Anmelden|Registrieren|Sign in|Register/i.test(h.textContent||''))return;
+          const panel=h.parentElement;if(!panel||panel.querySelector('.orvuno-login-context'))return;
+          const box=document.createElement('div');box.className='orvuno-login-context';box.innerHTML='<strong>Was ist ORVUNO?</strong><br>Eine Wirtschafts- und Unternehmenssimulation: Betrieb aufbauen → Rohstoffe beschaffen → produzieren → lagern → verkaufen und liefern → Gewinne reinvestieren. Das ? oben rechts erklärt alle Bereiche und startet das Tutorial.';
+          const status=[...panel.children].find(el=>/Spielserver|Game server/i.test(el.textContent||''));if(status)panel.insertBefore(box,status);else panel.append(box);
+        });
+      }
+      function maybeFirstTutorial(){let done=false;try{done=localStorage.getItem('orvuno.tutorial.completed.v1')==='1';}catch{}if(!done)setTimeout(()=>openTutorial(0),500);}
+      function start(){installFab();injectLoginContext();new MutationObserver(()=>injectLoginContext()).observe(document.body,{childList:true,subtree:true});window.addEventListener('world:user-login',maybeFirstTutorial);window.orvunoHelp={open:openHelp,startTutorial:()=>openTutorial(0)};}
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+    })();
+  </script>
 </body>
 </html>
