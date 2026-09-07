@@ -9,7 +9,7 @@ export class GameAccessGate {
     }
 
     async detectBackend(){ try{ await this.api.health(); this.backendOnline=true; }catch{ this.backendOnline=false; } return this.backendOnline; }
-    recoveryPending(){ return this.api?.session?.type==="recovery"; }
+    recoveryPending(){ return !!(this.api?.isPasswordRecovery?.()||this.api?.session?.type==="recovery"); }
 
     async grant(user){
         if(!user) return false;
@@ -51,7 +51,10 @@ export class GameAccessGate {
 
     async restoreSession(){
         await this.detectBackend();
-        if(!this.backendOnline||this.recoveryPending()) return null;
+        if(!this.backendOnline) return null;
+        try{ await this.api.preparePasswordRecovery?.(); }
+        catch(error){ console.warn("Passwort-Recovery konnte nicht vorbereitet werden",error); }
+        if(this.recoveryPending()) return null;
         try{ const user=await this.api.me(); if(user?.status==="active"){ await this.grant(user); return this.user||user; } }
         catch{}
         return null;
