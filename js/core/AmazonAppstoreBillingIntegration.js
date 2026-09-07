@@ -1,4 +1,6 @@
 // ORVUNO – Amazon Appstore IAP. Kaufdaten werden serverseitig per Amazon RVS geprüft.
+// Die native APK ist absichtlich nur eine generische Amazon-Brücke. SKU-Zuordnung,
+// Preise/Labels und Kaufablauf bleiben im Webcode, damit Store-Fixes keine neue APK brauchen.
 const AMAZON_SKU_MAP=Object.freeze({
   coins_100:'orvuno_coins_100',coins_550:'orvuno_coins_550',coins_1200:'orvuno_coins_1200',coins_2600:'orvuno_coins_2600',
   coins_6000:'orvuno_coins_6000',coins_13000:'orvuno_coins_13000',coins_26000:'orvuno_coins_26000',coins_50000:'orvuno_coins_50000',
@@ -7,7 +9,7 @@ const AMAZON_SKU_MAP=Object.freeze({
 const INTERNAL_BY_AMAZON=Object.freeze(Object.fromEntries(Object.entries(AMAZON_SKU_MAP).map(([k,v])=>[v,k])));
 const productCache=new Map();
 const inFlightReceipts=new Set();
-let bridgeReady=false,uiQueued=false;
+let bridgeReady=false,uiQueued=false,catalogRetryTimer=null;
 
 const nativeBridge=()=>window.OrvunoAmazonIap||window.OrvunoAmazonIAP||null;
 const authApi=()=>window.worldAccounts?.authApi;
@@ -64,15 +66,19 @@ function updateAmazonCatalogUi(){
     if(!amazonSku)return;
     button.dataset.amazonSku=amazonSku;
     const product=productCache.get(amazonSku);
+
+    // Produktmetadaten dienen nur für die Preis-/Textanzeige. Sie dürfen den Kauf
+    // niemals blockieren. Amazon zeigt den verbindlichen Preis ohnehin im Kaufdialog.
+    button.disabled=false;
+    button.title='Abrechnung über Amazon Appstore';
     if(product?.price){
       const price=String(product.price);
       if(button.textContent!==price)button.textContent=price;
-      button.disabled=false;button.title='Abrechnung über Amazon Appstore';
-    }else{
-      button.disabled=true;
-      button.textContent='Amazon wird geladen …';
-      button.title='Amazon-Preis wird geladen …';
+    }else if(button.dataset.amazonFallbackLabel!=='1'){
+      button.textContent='Über Amazon kaufen';
+      button.dataset.amazonFallbackLabel='1';
     }
+
     if(internalSku==='premium_1m'){
       const card=button.closest('article'),title=card?.querySelector('h3'),sub=card?.querySelector('p');
       if(title&&title.textContent!=='4 Wochen Premium')title.textContent='4 Wochen Premium';
@@ -90,12 +96,23 @@ function requestProducts(){
   if(typeof bridge.requestProductData!=='function')throw new Error('Amazon-Produktdaten können nicht geladen werden.');
   bridge.requestProductData(JSON.stringify(Object.values(AMAZON_SKU_MAP)));
 }
+function refreshCatalogSoon(delay=0){
+  clearTimeout(catalogRetryTimer);
+  catalogRetryTimer=setTimeout(()=>{
+    try{requestProducts();}catch(error){console.warn('Amazon-Produktdaten werden später erneut geladen',error);}
+  },delay);
+}
 export async function beginAmazonPurchase({internalSku}={}){
-  const amazonSku=AMAZON_SKU_MAP[String(internalSku||'')];
+  const normalized=String(internalSku||'');
+  const amazonSku=AMAZON_SKU_MAP[normalized];
   if(!amazonSku)throw new Error('Dieses Produkt ist im Amazon Appstore nicht verfügbar.');
-  if(!productCache.get(amazonSku))throw new Error('Der Amazon-Preis ist noch nicht geladen. Bitte einen Moment warten.');
-  requireBridge().purchase(amazonSku);
-  return {success:true,pending:true,provider:'amazon',sku:internalSku,amazonSku};
+
+  // Wie bei Hofhain: der Klick geht direkt an die native Amazon-Brücke. Ein fehlender
+  // Produktdaten-Cache darf keinen toten/gesperrten Kaufbutton erzeugen.
+  const bridge=requireBridge();
+  feedback('Amazon-Kauf wird geöffnet …','info');
+  bridge.purchase(amazonSku);
+  return {success:true,pending:true,provider:'amazon',sku:normalized,amazonSku};
 }
 export function beginCoinPurchase(request={}){return beginAmazonPurchase({internalSku:request.packageId});}
 export function beginPremiumPurchase(plan={}){return beginAmazonPurchase({internalSku:plan.id||plan.planId});}
@@ -113,12 +130,15 @@ function install(){
     queueUiUpdate();
     window.dispatchEvent(new CustomEvent('world:amazon-catalog-ready',{detail:{products:getAmazonCatalogDetails()}}));
   });
+  window.addEventListener('orvuno:amazon-iap-user',()=>refreshCatalogSoon(0));
   window.addEventListener('orvuno:amazon-iap-purchase',event=>verifyReceipt(event.detail||{}).catch(error=>feedback(error?.message||String(error),'error')));
   window.addEventListener('orvuno:amazon-iap-error',event=>feedback(event.detail?.message||'Amazon-IAP-Fehler','error'));
   const observer=new MutationObserver(mutations=>{if(mutations.some(m=>m.addedNodes.length||m.removedNodes.length))queueUiUpdate();});
   observer.observe(document.documentElement,{childList:true,subtree:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){queueUiUpdate();refreshCatalogSoon(150);}});
   queueUiUpdate();
-  try{requestProducts();}catch(error){feedback(error?.message||String(error),'error');}
+  refreshCatalogSoon(0);
+  setTimeout(()=>refreshCatalogSoon(1200),1200);
   setTimeout(()=>{try{restoreAmazonPurchases();}catch{}},800);
 }
 
