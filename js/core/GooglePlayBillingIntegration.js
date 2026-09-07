@@ -17,6 +17,62 @@ function normalizeToken(details={}){return String(details.purchaseToken||details
 async function productFor(internalSku){const products=await catalog();const product=products.find(x=>x.internalSku===internalSku);if(!product?.playSku)throw new Error('Dieses Produkt ist für Google Play noch nicht freigeschaltet');return product;}
 async function refreshEntitlements(){try{await window.worldAccounts?.gameStateSync?.refreshBalances?.();await window.worldAccounts?.premiumLifecycle?.refreshAccount?.(window.worldAccounts?.authApi);}catch(error){console.warn('Google-Play-Gutschrift konnte nicht sofort neu geladen werden',error);}}
 
+function showGooglePlayDiagnostic({stage='',internalSku='',playSku='',name='',message='',code='' }={}){
+  try{
+    if(!document?.body)return;
+    const id='orvuno-google-play-diagnostic';
+    let box=document.getElementById(id);
+    if(!box){
+      box=document.createElement('section');
+      box.id=id;
+      box.setAttribute('role','alert');
+      box.style.cssText=[
+        'position:fixed',
+        'left:12px',
+        'right:12px',
+        'top:max(74px,calc(env(safe-area-inset-top,0px) + 58px))',
+        'z-index:2147483647',
+        'box-sizing:border-box',
+        'max-height:48vh',
+        'overflow:auto',
+        'padding:14px 46px 14px 14px',
+        'border:2px solid #ff6b6b',
+        'border-radius:14px',
+        'background:#4b0909',
+        'color:#fff',
+        'font:600 15px/1.38 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+        'box-shadow:0 10px 34px rgba(0,0,0,.65)',
+        'white-space:normal',
+        'overflow-wrap:anywhere'
+      ].join(';');
+      const close=document.createElement('button');
+      close.type='button';
+      close.textContent='×';
+      close.setAttribute('aria-label','Diagnose schließen');
+      close.style.cssText='position:absolute;right:8px;top:6px;width:34px;height:34px;border:0;border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font:700 26px/1 system-ui;cursor:pointer';
+      close.addEventListener('click',()=>box.remove());
+      const title=document.createElement('div');
+      title.dataset.role='title';
+      title.style.cssText='font-size:18px;font-weight:800;margin:0 0 8px';
+      title.textContent='Google Play – Diagnose';
+      const body=document.createElement('div');
+      body.dataset.role='body';
+      box.append(title,body,close);
+      document.body.append(box);
+    }
+    const lines=[
+      `Phase: ${stage||'unbekannt'}`,
+      `Produkt: ${playSku||internalSku||'unbekannt'}`,
+      `Fehler: ${name||'Error'}`,
+      `Meldung: ${message||'(keine Meldung von Google)'}`
+    ];
+    if(code)lines.push(`Code: ${code}`);
+    const body=box.querySelector('[data-role="body"]');
+    if(body)body.textContent=lines.join('\n');
+    box.scrollTop=0;
+  }catch(error){console.warn('Google-Play-Diagnosefenster konnte nicht angezeigt werden',error);}
+}
+
 export async function getGooglePlayCatalogDetails(){
   const [svc,products]=await Promise.all([service(),catalog()]);
   const details=await svc.getDetails(products.map(x=>x.playSku));
@@ -111,14 +167,16 @@ export async function beginGooglePlayPurchase({internalSku}={}){
     const errorName=String(error?.name||'').trim();
     const errorMessage=String(error?.message||'').trim();
     const errorCode=error?.code==null?'':String(error.code).trim();
+    const stage=response?'after_checkout':'payment_request_show';
     console.error('[ORVUNO Google Play] Kauf fehlgeschlagen',{
-      stage:response?'after_checkout':'payment_request_show',
+      stage,
       internalSku,
       playSku:product.playSku,
       name:errorName,
       message:errorMessage,
       code:errorCode
     });
+    showGooglePlayDiagnostic({stage,internalSku,playSku:product.playSku,name:errorName,message:errorMessage,code:errorCode});
     if(errorName==='AbortError'){
       const details=[];
       if(errorMessage)details.push(`Meldung: ${errorMessage}`);
