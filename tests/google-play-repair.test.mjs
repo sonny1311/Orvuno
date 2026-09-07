@@ -106,6 +106,27 @@ test('Google Play edge verifies purchase server-side and uses hashed token idemp
   assert(edge.includes('GOOGLE_PLAY_SKU_MAP_JSON'));
 });
 
+test('verified Google Play product IDs are mapped to every active ORVUNO product',()=>{
+  const expected={
+    coins_100:'orvuno_coins_100',
+    coins_550:'orvuno_coins_550',
+    coins_1200:'orvuno_coins_1200',
+    coins_2600:'orvuno_coins_2600',
+    coins_6000:'orvuno_coins_6000',
+    coins_13000:'orvuno_coins_13000',
+    coins_26000:'orvuno_coins_26000',
+    coins_50000:'orvuno_coins_50000',
+    premium_1m:'orvuno_premium_1m',
+    premium_3m:'orvuno_premium_3m',
+    premium_6m:'orvuno_premium_6m',
+    premium_12m:'orvuno_premium_12m'
+  };
+  for(const [internalSku,playSku] of Object.entries(expected)){
+    assert(edge.includes(`${internalSku}:"${playSku}"`),`${internalSku} must map to ${playSku}`);
+  }
+  assert(edge.includes('if(!raw)return {...DEFAULT_SKU_MAP}'));
+});
+
 test('payment migration fixes status domain and locks fulfillment to service role',()=>{
   for(const status of ["'paid'","'succeeded'","'purchased'"])assert(migration.includes(status));
   assert(migration.includes("values(p_user_id,'google_play'"));
