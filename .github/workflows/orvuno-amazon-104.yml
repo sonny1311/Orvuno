@@ -1,9 +1,9 @@
-name: ORVUNO Amazon 1.0.4 APK
+name: ORVUNO Amazon 1.0.5 APK
 
 on:
   push:
     branches:
-      - fix/amazon-1.0.4-device-support
+      - release/amazon-1.0.5-code5
     paths:
       - 'android/amazon/**'
       - '.github/workflows/orvuno-amazon-104.yml'
@@ -32,7 +32,7 @@ jobs:
           APK=android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
           test -f "$APK"
           BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
-          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='4' versionName='1.0.4'"
+          printf '%s\n' "$BADGING" | grep "package: name='de.nadena.orvuno' versionCode='5' versionName='1.0.5'"
           printf '%s\n' "$BADGING" | grep "sdkVersion:'21'"
           printf '%s\n' "$BADGING" | grep "targetSdkVersion:'36'"
           if printf '%s\n' "$BADGING" | grep -q "android.hardware.screen.portrait"; then
@@ -43,8 +43,8 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q 'com.amazon.device.iap.ResponseReceiver'
           unzip -l "$APK" | grep -q 'assets/AppstoreAuthenticationKey.pem'
           {
-            echo 'VERSION_NAME=1.0.4'
-            echo 'VERSION_CODE=4'
+            echo 'VERSION_NAME=1.0.5'
+            echo 'VERSION_CODE=5'
             echo 'MIN_SDK=21'
             echo 'TARGET_SDK=36'
             echo 'PORTRAIT_HARDWARE_REQUIREMENT=no'
@@ -53,7 +53,7 @@ jobs:
           } > amazon-build.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ORVUNO-Amazon-1.0.4-code4-unsigned
+          name: ORVUNO-Amazon-1.0.5-code5-unsigned
           path: |
             android/amazon/app/build/outputs/apk/release/app-release-unsigned.apk
             amazon-build.txt
