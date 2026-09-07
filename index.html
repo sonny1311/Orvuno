@@ -108,6 +108,32 @@
   <script type="module" src="js/core/StorePaymentProviderBootstrap.js"></script>
   <script type="module" src="js/core/GooglePlayPriceUiIntegration.js"></script>
   <script type="module" src="js/core/ContextualHelpAndTutorialIntegration.js"></script>
+  <script>
+    (()=>{
+      const VERSION='v1';
+      const synced=new Set();
+      const identity=user=>String(user?.id||user?.authId||user?.auth_user_id||user?.public_id||'').trim();
+      const localKey=user=>{const id=identity(user);return id?`orvuno.tutorial.${VERSION}.seen.${id}`:'';};
+      const markLocalSeen=user=>{const key=localKey(user);if(key)try{localStorage.setItem(key,'1');}catch{}};
+      async function syncTutorialState(user){
+        if(!user)return;
+        const id=identity(user);if(!id)return;
+        if(user.tutorial_seen_at||user.tutorialSeenAt){markLocalSeen(user);return;}
+        if(synced.has(id))return;synced.add(id);
+        const api=window.worldAccounts?.authApi;if(!api?.rpc)return;
+        try{
+          const result=await api.rpc('set_orvuno_tutorial_state',{p_completed:false});
+          if(result?.success){
+            const seenAt=result.tutorialSeenAt||new Date().toISOString();
+            window.worldCurrentUser={...(window.worldCurrentUser||user),tutorial_seen_at:seenAt,tutorialSeenAt:seenAt};
+          }
+        }catch(error){synced.delete(id);console.warn('Tutorialstatus konnte noch nicht serverseitig gespeichert werden',error);}
+      }
+      window.addEventListener('world:user-login',event=>syncTutorialState(event.detail?.user||window.worldCurrentUser));
+      window.addEventListener('world:access-granted',event=>syncTutorialState(event.detail?.user||window.worldCurrentUser));
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{if(window.worldCurrentUser)syncTutorialState(window.worldCurrentUser);},{once:true});else if(window.worldCurrentUser)syncTutorialState(window.worldCurrentUser);
+    })();
+  </script>
   <script type="module" src="js/app-loader.js"></script>
   <script type="module" src="js/core/PlayerCommunicationAndInfoHubIntegration.js"></script>
   <script type="module" src="js/core/PlayerInfoHubNavBridge.js"></script>
