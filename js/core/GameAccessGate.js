@@ -1,4 +1,4 @@
-// ORVUNO - Spielzugang ohne sichtbare Anmeldung: automatisch oder per Spiel-ID.
+// ORVUNO - Spielzugang ohne sichtbare Anmeldung oder Wiederherstellungscode.
 import { AuthApiClient } from "./AuthApiClient.js";
 import { GameIdAccessClient, GameIdAccessDialog } from "./GameIdAccess.js";
 import { applyPlayerMoneyContext } from "./CurrencyPresentationBridge.js";
@@ -46,10 +46,6 @@ export class GameAccessGate {
         // "Tutorial öffnen" und die Hilfe bleiben jederzeit manuell erreichbar.
         this.markTutorialVoluntary(profile);
         document.documentElement.classList.add("orvuno-authenticated");
-        try{
-            const issued=await this.gameIdAccess.ensureForCurrentPlayer();
-            if(issued?.gameId)window.dispatchEvent(new CustomEvent("world:game-id-issued",{detail:{gameId:issued.gameId}}));
-        }catch(error){console.warn("Spiel-ID konnte noch nicht zugeordnet werden",error);}
 
         window.dispatchEvent(new CustomEvent("world:access-granted",{detail:{user:profile}}));
         if(this._resolver){ const resolve=this._resolver; this._resolver=null; resolve(profile); }
@@ -63,6 +59,7 @@ export class GameAccessGate {
             const user=await this.api.me();
             if(user?.status==="active"){ await this.grant(user); return this.user||user; }
         }catch{}
+        // Unsichtbarer Migrations-Fallback für Geräte, die noch eine alte lokale Kennung besitzen.
         try{
             const user=await this.gameIdAccess.resumeLocalPlayer();
             if(user?.status==="active"){ await this.grant(user); return this.user||user; }
@@ -75,18 +72,20 @@ export class GameAccessGate {
         if(!this._promise) this._promise=new Promise(resolve=>{this._resolver=resolve;});
         const restored=await this.restoreSession();
         if(restored) return restored;
-        this.openGameIdAccess();
+        this.openPlayerAccess();
         return this._promise;
     }
 
-    openGameIdAccess(){
+    openPlayerAccess(){
         if(this.dialog?.overlay) return;
         document.documentElement.classList.remove("orvuno-authenticated");
         this.dialog=new GameIdAccessDialog({client:this.gameIdAccess,onAuthenticated:user=>this.grant(user)});
         this.dialog.open();
     }
 
-    openRequiredLogin(){ this.openGameIdAccess(); }
+    // Kompatibilitätsalias für ältere Integrationen; die Oberfläche enthält keine Spiel-ID mehr.
+    openGameIdAccess(){ return this.openPlayerAccess(); }
+    openRequiredLogin(){ this.openPlayerAccess(); }
 
     async switchGame(){
         try{ await this.api.logout(); }catch{}
