@@ -1,26 +1,24 @@
-// WorldProject - harter Spielzugang: ohne aktiven Supabase-Account kein Spiel
-import { AccountAuthDialog } from "./AccountAuthDialog.js";
+// ORVUNO - Spielzugang ohne sichtbare Anmeldung: automatisch oder per Spiel-ID.
 import { AuthApiClient } from "./AuthApiClient.js";
+import { GameIdAccessClient, GameIdAccessDialog } from "./GameIdAccess.js";
 import { applyPlayerMoneyContext } from "./CurrencyPresentationBridge.js";
 
 export class GameAccessGate {
     constructor({ accountSystem, api = new AuthApiClient() } = {}) {
-        this.accountSystem=accountSystem; this.api=api; this.dialog=null; this.user=null; this.backendOnline=false; this._resolver=null; this._promise=null;
+        this.accountSystem=accountSystem;
+        this.api=api;
+        this.gameIdAccess=new GameIdAccessClient({api:this.api});
+        this.dialog=null;
+        this.user=null;
+        this.backendOnline=false;
+        this._resolver=null;
+        this._promise=null;
     }
 
     async detectBackend(){ try{ await this.api.health(); this.backendOnline=true; }catch{ this.backendOnline=false; } return this.backendOnline; }
-    recoveryPending(){ return !!(this.api?.isPasswordRecovery?.()||this.api?.session?.type==="recovery"); }
 
     async grant(user){
-        if(!user) return false;
-        if(user.status!=="active") return false;
-        // Ein Recovery-Token ist nur zum Setzen eines neuen Passworts gedacht.
-        // Solange dieser Zustand aktiv ist, darf die Spieloberfläche nicht freigegeben werden.
-        if(this.recoveryPending()) return false;
-
-        // Erst den vom Login gelieferten Benutzer setzen, damit der Spielstart nicht blockiert.
-        // Danach wird das vollständige, durch RLS geschützte Serverprofil geladen und als
-        // alleinige Laufzeitquelle verwendet. Darin steckt u. a. die echte admin_role.
+        if(!user||user.status!=="active") return false;
         this.user=user;
         window.worldCurrentUser=user;
 
@@ -38,12 +36,12 @@ export class GameAccessGate {
             applyPlayerMoneyContext(user);
         }
 
-        // Erst NACH erfolgreicher Authentifizierung wird die Spieloberfläche sichtbar.
-        // Dadurch sieht ein nicht angemeldeter App-Nutzer ausschließlich den Login-Dialog.
         document.documentElement.classList.add("orvuno-authenticated");
+        try{
+            const issued=await this.gameIdAccess.ensureForCurrentPlayer();
+            if(issued?.gameId)window.dispatchEvent(new CustomEvent("world:game-id-issued",{detail:{gameId:issued.gameId}}));
+        }catch(error){console.warn("Spiel-ID konnte noch nicht zugeordnet werden",error);}
 
-        // Wichtig: access-granted bekommt ebenfalls das vollständige Profil, damit
-        // InGameAdminAccessIntegration die serverseitige owner/admin-Rolle sofort sieht.
         window.dispatchEvent(new CustomEvent("world:access-granted",{detail:{user:profile}}));
         if(this._resolver){ const resolve=this._resolver; this._resolver=null; resolve(profile); }
         return true;
@@ -52,32 +50,45 @@ export class GameAccessGate {
     async restoreSession(){
         await this.detectBackend();
         if(!this.backendOnline) return null;
-        try{ await this.api.preparePasswordRecovery?.(); }
-        catch(error){ console.warn("Passwort-Recovery konnte nicht vorbereitet werden",error); }
-        if(this.recoveryPending()) return null;
-        try{ const user=await this.api.me(); if(user?.status==="active"){ await this.grant(user); return this.user||user; } }
-        catch{}
+        try{
+            const user=await this.api.me();
+            if(user?.status==="active"){ await this.grant(user); return this.user||user; }
+        }catch{}
+        try{
+            const user=await this.gameIdAccess.resumeLocalPlayer();
+            if(user?.status==="active"){ await this.grant(user); return this.user||user; }
+        }catch{}
         return null;
     }
 
     async ensureAccess(){
-        if(this.user&&!this.recoveryPending()){ document.documentElement.classList.add("orvuno-authenticated"); return this.user; }
+        if(this.user){ document.documentElement.classList.add("orvuno-authenticated"); return this.user; }
         if(!this._promise) this._promise=new Promise(resolve=>{this._resolver=resolve;});
-        const restored=await this.restoreSession(); if(restored) return restored;
-        this.openRequiredLogin(this.recoveryPending()?"recovery":"login"); return this._promise;
+        const restored=await this.restoreSession();
+        if(restored) return restored;
+        this.openGameIdAccess();
+        return this._promise;
     }
 
-    openRequiredLogin(mode=null){
+    openGameIdAccess(){
         if(this.dialog?.overlay) return;
         document.documentElement.classList.remove("orvuno-authenticated");
-        this.dialog=new AccountAuthDialog({accountSystem:this.accountSystem,api:this.api,required:true,onAuthenticated:user=>this.grant(user)});
-        this.dialog.open(mode|| (this.recoveryPending()?"recovery":"login"));
+        this.dialog=new GameIdAccessDialog({client:this.gameIdAccess,onAuthenticated:user=>this.grant(user)});
+        this.dialog.open();
     }
 
-    async logout(){
+    openRequiredLogin(){ this.openGameIdAccess(); }
+
+    async switchGame(){
         try{ await this.api.logout(); }catch{}
-        this.user=null; window.worldCurrentUser=null; window.worldServerAccountOverview=null;
+        this.user=null;
+        window.worldCurrentUser=null;
+        window.worldServerAccountOverview=null;
+        this.gameIdAccess.clearLocalGameId();
         document.documentElement.classList.remove("orvuno-authenticated");
-        window.dispatchEvent(new CustomEvent("world:access-revoked")); location.reload();
+        window.dispatchEvent(new CustomEvent("world:access-revoked"));
+        location.reload();
     }
+
+    async logout(){ return this.switchGame(); }
 }
