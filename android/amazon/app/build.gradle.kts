@@ -2,12 +2,12 @@ plugins { id("com.android.application") }
 
 android {
     namespace = "de.nadena.orvuno"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "de.nadena.orvuno"
-        minSdk = 23
-        targetSdk = 35
+        minSdk = 21
+        targetSdk = 36
         versionCode = 2
         versionName = "1.0.2"
     }
