@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'repair/**'
+      - 'qa/**'
   pull_request:
 
 jobs:
@@ -29,3 +30,6 @@ jobs:
       - name: Run Google Play repair regression tests
         shell: bash
         run: node tests/google-play-repair.test.mjs
+      - name: Run pre-release content, auth and help regression tests
+        shell: bash
+        run: node tests/pre-release-qa-content.test.mjs
