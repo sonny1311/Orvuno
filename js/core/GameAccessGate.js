@@ -17,6 +17,12 @@ export class GameAccessGate {
 
     async detectBackend(){ try{ await this.api.health(); this.backendOnline=true; }catch{ this.backendOnline=false; } return this.backendOnline; }
 
+    markTutorialVoluntary(user){
+        const id=String(user?.id||user?.authId||user?.auth_user_id||user?.public_id||'').trim();
+        if(!id)return;
+        try{localStorage.setItem(`orvuno.tutorial.v1.seen.${id}`,'1');}catch{}
+    }
+
     async grant(user){
         if(!user||user.status!=="active") return false;
         this.user=user;
@@ -36,6 +42,9 @@ export class GameAccessGate {
             applyPlayerMoneyContext(user);
         }
 
+        // Das Tutorial ist freiwillig. Der lokale Marker verhindert nur den automatischen Erststart;
+        // "Tutorial öffnen" und die Hilfe bleiben jederzeit manuell erreichbar.
+        this.markTutorialVoluntary(profile);
         document.documentElement.classList.add("orvuno-authenticated");
         try{
             const issued=await this.gameIdAccess.ensureForCurrentPlayer();

@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises';
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 const help=await read('js/core/ContextualHelpAndTutorialIntegration.js');
 const index=await read('index.html');
-const auth=await read('js/core/AccountAuthDialog.js');
+const gameId=await read('js/core/GameIdAccess.js');
 const gate=await read('js/core/GameAccessGate.js');
+const appShell=await read('css/app-shell.css');
 const play=await read('js/core/GooglePlayBillingIntegration.js');
 const privacy=await read('datenschutz.html');
 const deletion=await read('konto-loeschen.html');
@@ -30,7 +31,7 @@ assert.match(help,/TUTORIAL_STEPS=Object\.freeze\(\[/,'Tutorial-Schritte fehlen'
 const tutorialStepCount=(help.match(/\{topic:'[^']+',title:'\d+ ·/g)||[]).length;
 assert.ok(tutorialStepCount>=13,`Tutorial ist zu kurz: ${tutorialStepCount} Schritte`);
 assert.match(help,/orvuno\.tutorial\.\$\{TUTORIAL_VERSION\}\.seen\.\$\{id\}/,'Tutorial-Status ist nicht benutzerspezifisch');
-assert.match(help,/maybeAutoOpenTutorial/,'Erststart-Automatik fehlt');
+assert.match(help,/maybeAutoOpenTutorial/,'Tutorial-Automatik fehlt als kompatibler Mechanismus');
 assert.match(help,/safeGet\(key\)==='1'/,'Tutorial wird nicht gegen Wiederholungs-Autostart geschützt');
 assert.match(help,/data-orvuno-profile-tutorial/,'Profil-Wiedereinstieg für Tutorial fehlt');
 assert.match(help,/orvuno-help-trigger/,'Kontext-Fragezeichen fehlen');
@@ -38,7 +39,11 @@ assert.match(help,/orvuno-context-help-fab/,'Globale Hilfe für Spielflächen fe
 assert.match(help,/window\.orvunoHelp=/,'Öffentliche Hilfe-API fehlt');
 assert.match(help,/popstate/,'Zurück-Tasten-/History-Behandlung für Hilfe fehlt');
 assert.match(help,/max-height:min\(850px,92dvh\)/,'Mobile scrollbare Hilfe fehlt');
-assert.match(help,/orvuno-auth-game-context/,'Kontext im Anmeldebereich fehlt');
+assert.match(help,/orvuno-auth-game-context/,'Kontext im Zugangsbereich fehlt');
+assert.match(gate,/markTutorialVoluntary\(user\)/,'Freiwilliger Tutorial-Modus fehlt im Spielzugang');
+assert.match(gate,/orvuno\.tutorial\.v1\.seen\.\$\{id\}/,'Freiwilliger Tutorial-Modus setzt keinen benutzerspezifischen Marker');
+assert.match(appShell,/\.orvuno-tutorial-overlay \.orvuno-help-card/,'Tutorial besitzt keinen mobilen Scroll-Fix');
+assert.match(appShell,/\.orvuno-tutorial-overlay \.orvuno-tutorial-actions/,'Tutorial-Aktionen bleiben mobil nicht erreichbar');
 
 assert.match(index,/id="orvuno-public-context"/,'Öffentliche Spielbeschreibung fehlt');
 assert.match(index,/So funktioniert der Wirtschaftskreislauf/,'Wirtschaftskreislauf wird öffentlich nicht erklärt');
@@ -53,7 +58,7 @@ assert.match(index,/href="\/spielanleitung\.html"/,'Startseite verlinkt die Spie
 assert.match(index,/href="\/faq\.html"/,'Startseite verlinkt die FAQ nicht statisch');
 assert.match(index,/href="\/aktuelles\.html"/,'Startseite verlinkt Aktuelles nicht statisch');
 assert.match(index,/google-adsense-account/,'AdSense-Kontoverknüpfung fehlt auf der Startseite');
-assert.doesNotMatch(index,/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle/,'AdSense-Auto-Ads dürfen nicht direkt auf dem verpflichtenden Login-Screen geladen werden');
+assert.doesNotMatch(index,/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle/,'AdSense-Auto-Ads dürfen nicht direkt auf dem verpflichtenden Zugangsscreen geladen werden');
 assert.match(index,/ContextualHelpAndTutorialIntegration\.js/,'Hilfe-/Tutorial-Modul wird nicht geladen');
 assert.ok(index.length>13000,'Öffentliche Startseite ist für die geforderte Spielbeschreibung unerwartet dünn');
 
@@ -75,19 +80,26 @@ assert.match(updates,/Ausführliche Spielhilfe und Tutorial/,'Hilfe-/Tutorial-Up
 assert.match(updates,/Öffentliche Spielanleitung und FAQ/,'Öffentliche Content-Erweiterung fehlt');
 assert.match(publicCss,/@media\(max-width:760px\)/,'Öffentliche Inhaltsseiten besitzen kein Mobile-Layout');
 
-assert.match(auth,/recoveryMode\(\)/,'Recovery-Modus im Auth-Dialog fehlt');
-assert.match(auth,/renderRecovery\(panel\)/,'Neues-Passwort-Dialog fehlt');
-assert.match(auth,/resetPassword\(null,password\.value\)/,'Passwort wird nach Recovery nicht gesetzt');
-assert.match(auth,/withBusy\(button,task\)/,'Zentraler Double-Submit-Schutz im Auth-Dialog fehlt');
-assert.match(auth,/this\.render\(shell,"login"\)/,'Registrierung rendert nach Bestätigung nicht in den vollständigen Auth-Shell zurück');
-assert.doesNotMatch(auth,/this\.render\(panel,"login"\)/,'Alter fehlerhafter Register→Login-Renderpfad ist noch vorhanden');
-assert.match(auth,/privacyBox\.required=true/,'Datenschutz-Checkbox ist nicht verpflichtend');
-assert.match(auth,/privacyBox\.dataset\.orvunoPrivacyConsent="1"/,'Datenschutz-Checkbox ist nicht eindeutig markiert');
-assert.match(auth,/privacyLink\.href="\/datenschutz\.html"/,'Datenschutzerklärung ist in der Registrierung nicht verlinkt');
-assert.match(auth,/if\(!termsBox\.checked\|\|!privacyBox\.checked\)/,'Registrierung kann ohne Datenschutz-Zustimmung fortfahren');
+assert.match(gameId,/normalizePlayerName/,'Benutzername wird im Spiel-ID-Zugang nicht normalisiert');
+assert.match(gameId,/USERNAME_MIN=3/,'Benutzername hat keine Mindestlänge');
+assert.match(gameId,/USERNAME_MAX=24/,'Benutzername hat keine Höchstlänge');
+assert.match(gameId,/privacyBox\.required=true/,'Datenschutz-Kenntnisnahme ist nicht verpflichtend');
+assert.match(gameId,/privacyBox\.dataset\.orvunoPrivacyConsentBox='1'/,'Datenschutz-Checkbox ist nicht eindeutig markiert');
+assert.match(gameId,/privacyLink\.dataset\.orvunoPrivacyLink='1'/,'Datenschutzerklärung ist im Einstieg nicht eindeutig verlinkt');
+assert.match(gameId,/frame\.src='\/datenschutz\.html'/,'Datenschutzerklärung ist nicht direkt im Einstieg lesbar');
+assert.match(gameId,/privacyAccepted:privacyBox\.checked/,'Spielstart übergibt die Datenschutz-Kenntnisnahme nicht');
+assert.match(gameId,/Bitte bestätige zuerst die Datenschutzerklärung/,'Spielstart kann Datenschutzpflicht nicht verständlich ablehnen');
+assert.match(gameId,/Keine Registrierung, keine E-Mail, kein Passwort/,'Passwortloser Spiel-ID-Zugang wird nicht verständlich erklärt');
+assert.match(gameId,/Spiel-ID laden/,'Wiederherstellung auf anderem Gerät fehlt');
+assert.match(gate,/openGameIdAccess\(\)/,'Access-Gate öffnet nicht den passwortlosen Spiel-ID-Zugang');
+assert.match(gate,/resumeLocalPlayer\(\)/,'Lokale Spiel-ID wird nicht automatisch wiederhergestellt');
+assert.doesNotMatch(gate,/AccountAuthDialog|renderRecovery|recoveryPending/,'Aktiver Spielzugang hängt noch am alten Registrierungs-/Recovery-Dialog');
+
 assert.match(privacy,/<title>Datenschutzerklärung – ORVUNO<\/title>/,'Öffentliche Datenschutzerklärung fehlt oder ist falsch benannt');
-assert.match(privacy,/Spielerkonto und Anmeldung/,'Datenschutzerklärung beschreibt Kontodaten nicht');
+assert.match(privacy,/Benutzername und Spiel-ID statt Registrierung/,'Datenschutzerklärung beschreibt den neuen Zugang nicht');
+assert.match(privacy,/kryptografischer Hash der Spiel-ID/,'Datenschutzerklärung beschreibt die sichere Spiel-ID-Zuordnung nicht');
 assert.match(privacy,/Hosting und Datenbank/,'Datenschutzerklärung beschreibt technische Dienstleister nicht');
+assert.match(privacy,/Amazon Appstore/,'Datenschutzerklärung beschreibt Amazon-Zahlungen nicht');
 assert.match(privacy,/href="\/konto-loeschen\.html"/,'Datenschutzerklärung verweist nicht auf die Kontolöschung');
 assert.match(deletion,/<title>ORVUNO-Konto löschen<\/title>/,'Öffentliche Kontolöschseite fehlt');
 assert.match(deletion,/Löschung per E-Mail beantragen/,'Kontolöschseite bietet keinen sichtbaren Antragsweg');
@@ -97,16 +109,11 @@ assert.match(footer,/faq:'\/faq\.html'/,'In-App-Footer verlinkt die FAQ nicht');
 assert.match(footer,/updates:'\/aktuelles\.html'/,'In-App-Footer verlinkt Aktuelles nicht');
 assert.match(footer,/privacy:'\/datenschutz\.html'/,'In-App-Footer verweist nicht direkt auf die Datenschutzerklärung');
 assert.match(footer,/accountDeletion:'\/konto-loeschen\.html'/,'In-App-Footer verweist nicht auf die Kontolöschung');
-assert.match(footer,/mountAuthPublicLinks/,'Öffentliche Inhalte sind auf der Login-/Registrierungsansicht nicht verlinkt');
-assert.match(footer,/Noch unsicher\? Spielanleitung und FAQ/,'Loginseite erklärt die öffentlichen Hilfsangebote nicht');
+assert.match(footer,/mountAuthPublicLinks/,'Öffentliche Inhalte sind auf dem Zugangsscreen nicht verlinkt');
 
 assert.equal(ads.trim(),'google.com, pub-5715415363963326, DIRECT, f08c47fec0942fa0','ads.txt enthält nicht die erwartete AdSense-Publisher-ID');
 assert.match(robots,/Sitemap: https:\/\/www\.orvuno\.de\/sitemap\.xml/,'robots.txt verweist nicht auf die Sitemap');
 for(const path of ['spielanleitung.html','faq.html','aktuelles.html','datenschutz.html','impressum.html','konto-loeschen.html'])assert.match(sitemap,new RegExp(path.replace('.','\\.')),`Sitemap enthält ${path} nicht`);
-
-assert.match(gate,/recoveryPending\(\)/,'Access-Gate erkennt Recovery-Session nicht');
-assert.match(gate,/if\(this\.recoveryPending\(\)\) return false/,'Recovery-Session kann weiterhin Spielzugang erhalten');
-assert.match(gate,/this\.openRequiredLogin\(this\.recoveryPending\(\)\?"recovery":"login"\)/,'Recovery-Session öffnet nicht den Passwortdialog');
 
 assert.match(play,/autoRestoreGooglePlayPurchases/,'Automatische Play-Wiederherstellung fehlt');
 assert.match(play,/world:user-login/,'Play-Restore reagiert nicht auf Login');
@@ -115,4 +122,4 @@ assert.match(play,/restoreGooglePlayPurchases\(\)/,'Play-Restore verwendet nicht
 assert.match(play,/edge\('verify_purchase'/,'Play-Käufe werden nicht serverseitig verifiziert');
 assert.doesNotMatch(play,/coin_wallet|balance\s*\+=|premiumUntil\s*=/i,'Play-Client enthält verdächtige clientseitige Entitlement-Gutschrift');
 
-console.log('✅ PRE-RELEASE QA CONTENT/AUTH/HELP/ADSENSE/PUBLIC-PAGES TESTS ERFOLGREICH');
+console.log('✅ PRE-RELEASE QA CONTENT/GAME-ID/PRIVACY/HELP/ADSENSE/PUBLIC-PAGES TESTS ERFOLGREICH');
