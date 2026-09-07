@@ -178,7 +178,7 @@ test('Digital Asset Links publishes verified fingerprints and remains package-bo
   const fingerprints=ok.body[0].target.sha256_cert_fingerprints;
   assert.ok(fingerprints.length>=3);
   for(const fingerprint of fingerprints)assert.match(fingerprint,/^(?:[A-F0-9]{2}:){31}[A-F0-9]{2}$/);
-  assert.deepEqual(staticAssetlinks[0].target.sha256_cert_fingerprints,fingerprints);
+  assert.deepEqual(staticAssetlinks[0].target.sha256_cert_fingerprints,Array.from(fingerprints));
   const extra=Array.from({length:32},()=> 'AA').join(':');
   const withExtra=execute(extra);
   assert(withExtra.body[0].target.sha256_cert_fingerprints.includes(extra));
