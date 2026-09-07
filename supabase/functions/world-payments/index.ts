@@ -5,6 +5,23 @@ import braintree from "npm:braintree@3.38.0";
 const corsHeaders={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...corsHeaders,"Content-Type":"application/json"}});
 const env=(name:string)=>Deno.env.get(name)?.trim()||"";
+const GOOGLE_PACKAGE_NAME="de.nadena.orvuno";
+const GOOGLE_SCOPE="https://www.googleapis.com/auth/androidpublisher";
+const GOOGLE_TOKEN_URL="https://oauth2.googleapis.com/token";
+const googleProductMap:Record<string,string>=Object.freeze({
+ "orvuno_coins_100":"coins_100",
+ "orvuno_coins_550":"coins_550",
+ "orvuno_coins_1200":"coins_1200",
+ "orvuno_coins_2600":"coins_2600",
+ "orvuno_coins_6000":"coins_6000",
+ "orvuno_coins_13000":"coins_13000",
+ "orvuno_coins_26000":"coins_26000",
+ "orvuno_coins_50000":"coins_50000",
+ "orvuno_premium_1m":"premium_1m",
+ "orvuno_premium_3m":"premium_3m",
+ "orvuno_premium_6m":"premium_6m",
+ "orvuno_premium_12m":"premium_12m"
+});
 
 function gateway(){
  const merchantId=env("BRAINTREE_MERCHANT_ID"),publicKey=env("BRAINTREE_PUBLIC_KEY"),privateKey=env("BRAINTREE_PRIVATE_KEY");
@@ -20,6 +37,67 @@ function stripeConfig(){
  if(key.startsWith("sk_live_")) return {key,environment:"live",sessionPrefix:"cs_live_"};
  if(key.startsWith("sk_test_")) return {key,environment:"test",sessionPrefix:"cs_test_"};
  throw new Error("STRIPE_SECRET_KEY ist kein gültiger Stripe-Schlüssel");
+}
+
+const utf8=(value:string)=>new TextEncoder().encode(value);
+function base64Url(bytes:Uint8Array){
+ let raw="";
+ for(const byte of bytes)raw+=String.fromCharCode(byte);
+ return btoa(raw).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+function pemToBytes(pem:string){
+ const body=pem.replace(/-----BEGIN PRIVATE KEY-----/g,"").replace(/-----END PRIVATE KEY-----/g,"").replace(/\s+/g,"");
+ if(!body)throw new Error("Google-Play-Privatschlüssel fehlt");
+ const raw=atob(body),bytes=new Uint8Array(raw.length);
+ for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+ return bytes;
+}
+function googleServiceAccount(){
+ const raw=env("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON");
+ if(!raw)throw new Error("Google Play Service Account ist serverseitig noch nicht konfiguriert");
+ let account:any;
+ try{account=JSON.parse(raw);}catch(_e){throw new Error("Google Play Service Account JSON ist ungültig");}
+ if(!account?.client_email||!account?.private_key)throw new Error("Google Play Service Account ist unvollständig");
+ return account;
+}
+async function googleAccessToken(){
+ const account=googleServiceAccount(),now=Math.floor(Date.now()/1000);
+ const header=base64Url(utf8(JSON.stringify({alg:"RS256",typ:"JWT"})));
+ const claims=base64Url(utf8(JSON.stringify({iss:String(account.client_email),scope:GOOGLE_SCOPE,aud:GOOGLE_TOKEN_URL,iat:now,exp:now+3500})));
+ const unsigned=`${header}.${claims}`;
+ const key=await crypto.subtle.importKey("pkcs8",pemToBytes(String(account.private_key)),{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+ const signature=new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,utf8(unsigned)));
+ const assertion=`${unsigned}.${base64Url(signature)}`;
+ const form=new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion});
+ const response=await fetch(GOOGLE_TOKEN_URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:form});
+ const payload=await response.json().catch(()=>({}));
+ if(!response.ok||!payload?.access_token)throw new Error(payload?.error_description||"Google Play API Anmeldung fehlgeschlagen");
+ return String(payload.access_token);
+}
+async function googlePublisherRequest(path:string,method="GET"){
+ const token=await googleAccessToken();
+ const response=await fetch(`https://androidpublisher.googleapis.com/androidpublisher/v3/${path}`,{method,headers:{Authorization:`Bearer ${token}`,Accept:"application/json"}});
+ const payload=response.status===204?{}:await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(payload?.error?.message||`Google Play API Fehler (${response.status})`);
+ return payload;
+}
+async function verifyGoogleProductPurchase(productId:string,purchaseToken:string){
+ const expectedSku=googleProductMap[productId];
+ if(!expectedSku)throw new Error("Unbekanntes Google-Play-Produkt");
+ if(!purchaseToken||purchaseToken.length>4096)throw new Error("Ungültiger Google-Play-Kaufbeleg");
+ const path=`applications/${encodeURIComponent(GOOGLE_PACKAGE_NAME)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`;
+ const purchase=await googlePublisherRequest(path);
+ if(Number(purchase?.purchaseState)!==0)throw new Error("Google Play meldet den Kauf nicht als abgeschlossen");
+ if(purchase?.productId&&String(purchase.productId)!==productId)throw new Error("Google Play lieferte ein anderes Produkt zurück");
+ return {purchase,internalSku:expectedSku};
+}
+async function consumeGoogleProduct(productId:string,purchaseToken:string){
+ const path=`applications/${encodeURIComponent(GOOGLE_PACKAGE_NAME)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:consume`;
+ await googlePublisherRequest(path,"POST");
+}
+async function purchaseTokenReference(token:string){
+ const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",utf8(token)));
+ return `gplay_${base64Url(digest)}`;
 }
 
 async function retrieveStripeCheckoutSession(sessionId:string){
@@ -82,6 +160,18 @@ Deno.serve(async(req:Request)=>{
   const profileId=Number(profile.id);
   if(!Number.isSafeInteger(profileId)||profileId<=0) return json({error:"Ungültiges Spielerprofil"},403);
   const body=await req.json().catch(()=>({}));const action=String(body?.action||"");
+
+  if(action==="google_play_purchase"){
+   const productId=String(body?.productId||"").trim(),purchaseToken=String(body?.purchaseToken||"").trim();
+   const {purchase,internalSku}=await verifyGoogleProductPurchase(productId,purchaseToken);
+   const tokenRef=await purchaseTokenReference(purchaseToken);
+   const {data:fulfilled,error:fulfillError}=await sb.rpc("fulfill_google_play_purchase",{p_user_id:profileId,p_provider_transaction_id:tokenRef,p_sku:internalSku,p_status:"paid"});
+   if(fulfillError){console.error("Google Play fulfillment failed",fulfillError.code);return json({success:false,error:"Google-Play-Kauf bestätigt, Gutschrift konnte nicht abgeschlossen werden. Bitte Support kontaktieren."},500);}
+   if(Number(purchase?.consumptionState)!==1){
+    try{await consumeGoogleProduct(productId,purchaseToken);}catch(error){console.error("Google Play consume failed",error instanceof Error?error.message:"unknown");return json({success:false,error:"Kauf wurde gutgeschrieben, konnte bei Google Play aber noch nicht abgeschlossen werden. Bitte erneut öffnen."},503);}
+   }
+   return json({success:true,fulfilled:true,provider:"google_play",productId,sku:internalSku,orderId:String(purchase?.orderId||""),fulfillment:fulfilled});
+  }
 
   if(action==="stripe_checkout"){
    const sku=String(body?.sku||"");
