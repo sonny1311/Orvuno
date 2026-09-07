@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="application-name" content="ORVUNO">
+  <meta name="description" content="ORVUNO ist eine Wirtschafts- und Unternehmenssimulation mit Betrieben, Rohstoffen, Produktion, Lager, Personal, Maschinen, Transport, Handel, Finanzen und einer verbundenen Spielerwirtschaft.">
   <title>ORVUNO</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="app-icon.svg" type="image/svg+xml">
@@ -19,9 +20,26 @@
     html:not(.orvuno-authenticated) #worldApp,
     html:not(.orvuno-authenticated) #world-main-nav,
     html:not(.orvuno-authenticated) .android-download-fab{display:none!important;pointer-events:none!important}
+    html[data-orvuno-native-app="1"] .android-download-fab{display:none!important}
     .android-download-fab{position:fixed;right:18px;bottom:18px;z-index:99990;display:inline-flex;align-items:center;gap:9px;padding:12px 16px;border:1px solid #d7a62b;border-radius:999px;background:#142033;color:#fff;text-decoration:none;font:800 14px/1 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35)}
     .android-download-fab:hover{background:#1a2a42}
-    @media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}}
+    .orvuno-help-fab{position:fixed;right:16px;top:max(16px,env(safe-area-inset-top));z-index:25050;width:46px;height:46px;border-radius:50%;border:1px solid #d7a62b;background:#142033;color:#f4bd43;font:900 24px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+    .orvuno-help-overlay{position:fixed;inset:0;z-index:25060;background:rgba(2,6,23,.88);display:grid;place-items:center;padding:20px;overflow:auto;color:#f8fafc;font-family:Arial,sans-serif}
+    .orvuno-help-card{width:min(980px,96vw);max-height:88vh;overflow:auto;border:1px solid #40516a;border-radius:18px;background:#0f172a;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:22px}
+    .orvuno-help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px}
+    .orvuno-help-topic{padding:14px;border:1px solid #334155;border-radius:12px;background:#111c30;line-height:1.45}
+    .orvuno-help-topic h3{margin:0 0 8px;color:#f4bd43}
+    .orvuno-help-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    .orvuno-help-actions button{padding:11px 14px;border-radius:9px;border:1px solid #465b78;background:#17243a;color:#fff;font-weight:800;cursor:pointer}
+    .orvuno-help-actions button:disabled{opacity:.45;cursor:not-allowed}
+    .orvuno-login-context{padding:15px 16px;margin:0 0 18px;border:1px solid #36557a;border-radius:10px;background:rgba(19,47,78,.45);color:#dce8f7;font:600 14px/1.5 Arial,sans-serif}
+    .orvuno-login-context strong{color:#f4bd43}
+    .orvuno-login-context ul{margin:9px 0 0;padding-left:20px;color:#c9d8eb}
+    .orvuno-context-help{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:22px;height:22px;margin-left:7px;padding:0;border:1px solid #d7a62b;border-radius:50%;background:#142033;color:#f4bd43;font:900 13px/1 Arial,sans-serif;cursor:pointer;vertical-align:middle;box-shadow:0 3px 10px rgba(0,0,0,.28)}
+    .orvuno-context-help:hover,.orvuno-context-help:focus{background:#21324c;outline:2px solid rgba(244,189,67,.28);outline-offset:2px}
+    .orvuno-context-flow{margin:14px 0 0;padding-left:22px;color:#dce3ed;line-height:1.55}
+    .orvuno-context-note{margin-top:14px;padding:11px 13px;border-radius:9px;background:#13233a;border:1px solid #304b6f;color:#bed0e8;line-height:1.45}
+    @media (max-width:700px){.android-download-fab{right:12px;bottom:12px;padding:11px 14px;font-size:13px}.orvuno-help-fab{right:12px;top:max(12px,env(safe-area-inset-top));width:42px;height:42px}.orvuno-help-card{padding:16px}.orvuno-help-grid{grid-template-columns:1fr}.orvuno-context-help{width:24px;height:24px}}
   </style>
   <script>
     (()=>{
@@ -58,10 +76,10 @@
   <script type="module" src="js/core/ImmediateLocaleUiBridge.js"></script>
   <script type="module" src="js/core/AppPlatformBridge.js"></script>
   <script type="module" src="js/core/SingleBottlingSlotIntegration.js"></script>
+  <script type="module" src="js/bootstrap.js"></script>
   <script type="module" src="js/core/BusinessSwitchPaymentGuardIntegration.js"></script>
-  <script type="module" src="js/core/StorePaymentProviderBootstrap.js"></script>
-  <script type="module" src="js/core/GooglePlayPriceUiIntegration.js"></script>
-  <script type="module" src="js/app-loader.js"></script>
+  <script type="module" src="js/core/BraintreePaymentCheckoutIntegration.js"></script>
+  <script type="module" src="js/core/StripePaymentCheckoutIntegration.js"></script>
   <script type="module" src="js/core/PlayerCommunicationAndInfoHubIntegration.js"></script>
   <script type="module" src="js/core/PlayerInfoHubNavBridge.js"></script>
   <script type="module" src="js/core/FooterInformationLinksIntegration.js"></script>
@@ -70,5 +88,170 @@
   <script type="module" src="js/core/HomeBottlingCallToActionIntegration.js"></script>
   <script type="module" src="js/core/GermanPlayerTextCleanupIntegration.js"></script>
   <script type="module" src="js/core/MobileAppUsabilityIntegration.js"></script>
+  <script>
+    (()=>{
+      const topics=[
+        ['🏠','Start & Dashboard','Hier laufen Geld, Coins, Hinweise, offene Aufgaben und aktive Vorgänge zusammen. Nutze das Dashboard als Ausgangspunkt und arbeite Warnungen zuerst ab.'],
+        ['🏢','Betrieb gründen & ausbauen','Standort, Immobilie, Größe und Ausbau bestimmen Kapazitäten und laufende Kosten. Jeder Betrieb besitzt eine eigene operative Wirtschaft.'],
+        ['📦','Einkauf & Lager','Rohstoffe und Waren benötigen Lagerplatz. Einkauf, Wareneingang und Bestand müssen zusammenpassen, sonst steht die Produktion still.'],
+        ['⚙️','Produktion & Abfüllung','Produktion braucht Rohstoffe, Maschine, Personal, Zeit und freien Lagerplatz. Abfüllung oder Weiterverarbeitung kann ein eigener Schritt sein.'],
+        ['🛠️','Maschinen & Wartung','Maschinen haben Zustand und Auslastung. Wartung verhindert Leistungseinbruch und Produktionsstopps; neue Anlagen erhöhen Kapazität.'],
+        ['👷','Personal','Mitarbeiter müssen eingestellt und passend zugewiesen werden. Fehlendes oder falsch eingesetztes Personal blockiert Arbeitsabläufe.'],
+        ['📋','Kundenaufträge','Aufträge binden Ware und erzeugen Umsatz erst nach erfolgreicher Erfüllung. Prüfe Bestand, Marge, Frist und Transport bevor du annimmst.'],
+        ['🚚','Transport & Lieferungen','Fahrzeuge, Kapazität, Route und Zeit bestimmen, ob Ware tatsächlich beim Ziel ankommt. Eine gestartete Lieferung ist ein eigener laufender Vorgang.'],
+        ['📈','Markt & Handel','Preise entstehen aus Angebot, Nachfrage und Spielaktivität. Vergleiche Einkauf, Produktionskosten, Transport und Verkaufspreis statt nur den Umsatz.'],
+        ['💶','Finanzen','Firmengeld, Kosten, Kredite, Miete, Ausbau und laufende Verpflichtungen entscheiden über Liquidität. Wachstum ohne Reserve kann einen Betrieb ausbremsen.'],
+        ['🪙','Coins & Premium','Coins sind getrennt vom Firmengeld. Premium erweitert Komfortfunktionen; Coin- und Premiumkäufe verändern nicht automatisch die operative Wirtschaft eines Betriebs.'],
+        ['👥','Spielerwirtschaft','Markt, Nachrichten und weitere Mehrspielerfunktionen verbinden deine Entscheidungen mit anderen Spielern. Prüfe bei Handel immer Preis und verfügbare Mittel.'],
+        ['❓','Kontexthilfe','Kleine ?-Symbole stehen direkt an wichtigen Spielaktionen. Sie erklären genau den jeweiligen Ablauf, Voraussetzungen und typische Fehler.']
+      ];
+
+      const tutorial=[
+        ['Willkommen bei ORVUNO','ORVUNO ist eine Wirtschafts- und Unternehmenssimulation. Du baust keine Klickstrecke ab, sondern eine funktionierende Kette aus Einkauf, Lager, Personal, Maschinen, Produktion, Verkauf und Transport.'],
+        ['1. Dashboard lesen','Starte mit Geld, Coins, Lager, aktiven Vorgängen und Warnungen. Rote oder unvollständige Bereiche zeigen meistens, was vor dem nächsten Schritt fehlt.'],
+        ['2. Betrieb vorbereiten','Wähle Betrieb, Standort und Ausbau passend zu deinem Geschäftsmodell. Gebäudegröße und Infrastruktur bestimmen Platz, Kosten und spätere Kapazität.'],
+        ['3. Rohstoffe & Lager','Beschaffe nur so viel, wie du lagern und verarbeiten kannst. Rohstoffe müssen tatsächlich im operativen Bestand angekommen sein, bevor eine Produktion starten kann.'],
+        ['4. Maschinen & Personal','Eine Maschine allein produziert nicht. Prüfe Zustand, Verfügbarkeit und Personalzuweisung. Fehlt eine Voraussetzung, zeigt die Bereitschaftsanzeige den Engpass.'],
+        ['5. Produktion starten','Wähle Produkt und Menge. ORVUNO reserviert benötigte Ressourcen und führt den Vorgang über Zeit aus. Nach Abschluss landet das Ergebnis im vorgesehenen Bestand.'],
+        ['6. Abfüllung & Weiterverarbeitung','Einige Branchen haben zusätzliche Prozessschritte. Fertige Zwischenware ist nicht immer sofort verkaufsfähig; achte auf Abfüllung, Verpackung oder weitere Verarbeitung.'],
+        ['7. Kundenaufträge & Lieferung','Prüfe Ware, Preis, Frist und Transport. Auftrag annehmen, Ware reservieren, Lieferung durchführen und erst danach den wirtschaftlichen Erfolg bewerten.'],
+        ['8. Finanzen & Wachstum','Reinvestiere Gewinne in Lager, Maschinen, Personal und weitere Betriebe. Halte eine Liquiditätsreserve für laufende Kosten, Miete, Wartung und unerwartete Engpässe.'],
+        ['9. Markt & Spielerwirtschaft','Vergleiche Angebote und Preise. Handel kann Chancen schaffen, aber nur wenn Einkauf, Gebühren, Transport und Verkauf zusammen wirtschaftlich bleiben.'],
+        ['10. Coins, Premium & Hilfe','Coins und Premium sind Zusatzsysteme. Das ? oben rechts öffnet die komplette Hilfe; kleine ? direkt an Aktionen erklären einzelne Spielsequenzen. Das Tutorial findest du später jederzeit im Spielerprofil.']
+      ];
+
+      const contextRules=[
+        {id:'dashboard',pattern:/dashboard|startseite|kommando|übersicht|zentrale|vorgänge|aktivitäten/i,title:'Dashboard & aktive Vorgänge',summary:'Das Dashboard sammelt den aktuellen Zustand deines Unternehmens. Es ist die beste Stelle, um Engpässe zu erkennen, bevor du neue Aktionen startest.',steps:['Prüfe Firmengeld, Coins und aktuelle Warnungen.','Sieh nach, ob Produktionen, Lieferungen oder Bauvorgänge laufen.','Öffne zuerst den Bereich mit dem konkreten Engpass.','Kehre danach zum Dashboard zurück und kontrolliere, ob der Status aktualisiert wurde.'],tip:'Ein voller Aufgabenstapel ist meist ein Zeichen, erst laufende Vorgänge abzuschließen statt neue zu starten.'},
+        {id:'setup',pattern:/gründ|einricht|setup|standort|immobil|miete|mieten|grundstück|gebäude wählen|betriebsart/i,title:'Betrieb einrichten',summary:'Beim Einrichten legst du die wirtschaftliche Basis des Betriebs fest. Standort, Immobilie und Größe beeinflussen Kosten, Fläche und spätere Kapazitäten.',steps:['Betriebsart und Standort prüfen.','Miete/Kauf und Gebäudeklasse vergleichen.','Genug Liquidität für Startkosten und laufende Kosten zurückhalten.','Setup abschließen und danach Lager, Maschinen und Personal vorbereiten.'],tip:'Nicht das größte Gebäude ist automatisch die beste Wahl. Zu hohe Fixkosten bremsen junge Betriebe.'},
+        {id:'warehouse',pattern:/lager|bestand|wareneingang|rohstoff|fertigwaren|lagerplatz|warehouse|storage/i,title:'Lager & Bestand',summary:'Das Lager verbindet Einkauf, Produktion und Verkauf. Nur tatsächlich verfügbarer operativer Bestand kann verarbeitet oder geliefert werden.',steps:['Freien Lagerplatz prüfen.','Rohstoffbestand mit Produktionsbedarf vergleichen.','Wareneingänge bzw. laufende Lieferungen berücksichtigen.','Nach Produktion oder Verkauf den Bestand erneut kontrollieren.'],tip:'Zu wenig Lagerplatz kann Einkauf oder Produktion blockieren; zu viel ungenutzter Bestand bindet Geld.'},
+        {id:'supplier',pattern:/lieferant|einkauf|nachschub|bestellen|beschaffen|supplier|purchase order/i,title:'Einkauf & Lieferanten',summary:'Einkauf startet die Versorgungskette. Eine Bestellung ist noch kein sofort verfügbarer Rohstoff, solange ein Liefer- oder Wareneingangsprozess läuft.',steps:['Benötigte Menge aus dem Produktionsziel ableiten.','Preis und verfügbare Liquidität prüfen.','Lagerkapazität berücksichtigen.','Bestellung auslösen und Wareneingang abwarten bzw. verfolgen.'],tip:'Kaufe nicht blind maximal ein. Preis, Lagerplatz und Kapitalbindung gehören zusammen.'},
+        {id:'bottling',pattern:/abfüll|abfuell|flasche|bottl|verpack|packen/i,title:'Abfüllung & Verpackung',summary:'Abfüllung ist ein eigener Produktionsschritt. Zwischenprodukt und verkaufsfähige Ware sind nicht immer dasselbe.',steps:['Prüfe verfügbares Zwischenprodukt.','Wähle Größe bzw. Verpackungsform.','Prüfe Maschine, Personal und freien Lagerplatz.','Starte die Abfüllung und warte auf den Abschluss, bevor du die Ware verkaufst.'],tip:'Wenn ein Kundenauftrag die fertige Verkaufsware verlangt, reicht ungefülltes Zwischenprodukt nicht.'},
+        {id:'production',pattern:/produktion|produzier|herstell|fertigung|rezept|produktionsbereit|production/i,title:'Produktion',summary:'Produktion verarbeitet Rohstoffe über Maschinen und Personal zu verkaufsfähigen oder weiterzuverarbeitenden Waren.',steps:['Produkt und gewünschte Menge wählen.','Rohstoffe, Maschine, Personal und Kapazität prüfen.','Produktion starten; benötigte Ressourcen werden für den Vorgang berücksichtigt.','Fortschritt abwarten und nach Abschluss den Zielbestand prüfen.'],tip:'Wenn Starten nicht möglich ist, liegt der Engpass meist bei Rohstoff, Personal, Maschine, Kapazität oder Lagerplatz.'},
+        {id:'maintenance',pattern:/wartung|reparatur|maschinenzustand|verschleiß|maintenance|repair/i,title:'Maschinenwartung',summary:'Maschinenzustand beeinflusst die operative Leistung. Wartung kostet Geld oder Zeit, verhindert aber Ausfälle und sinkende Effizienz.',steps:['Zustand und aktuelle Auslastung prüfen.','Wartung möglichst vor kritischer Produktion einplanen.','Kosten und Ausfallzeit berücksichtigen.','Nach Abschluss Bereitschaft und Leistung erneut kontrollieren.'],tip:'Warte nicht zwingend bis zum Totalausfall; ungeplante Stillstände treffen oft die gesamte Lieferkette.'},
+        {id:'machine',pattern:/maschine|anlage|maschinenkauf|equipment|machine/i,title:'Maschinen & Anlagen',summary:'Maschinen bestimmen, welche Produkte und Mengen hergestellt werden können. Kauf, Zustand, Kapazität und Belegung gehören zusammen.',steps:['Passende Maschine für das Produkt auswählen.','Anschaffungskosten und verfügbare Fläche prüfen.','Personal zuweisen.','Kapazität und Zustand vor Produktionsstart kontrollieren.'],tip:'Mehr Maschinen helfen nur, wenn auch Rohstoffe, Personal, Lager und Absatz mitwachsen.'},
+        {id:'staff',pattern:/personal|mitarbeiter|einstell|zuweis|belegschaft|workforce|staff/i,title:'Personal & Zuweisung',summary:'Mitarbeiter sind operative Ressourcen. Sie müssen vorhanden und dem richtigen Arbeitsbereich oder der richtigen Maschine zugewiesen sein.',steps:['Benötigte Rolle bzw. Stelle ermitteln.','Mitarbeiter einstellen.','Dem vorgesehenen Bereich oder der Maschine zuweisen.','Danach Produktionsbereitschaft erneut prüfen.'],tip:'Ein vorhandener Mitarbeiter zählt nicht automatisch für jede Maschine; die konkrete Zuweisung ist entscheidend.'},
+        {id:'orders',pattern:/kundenauftrag|auftrag annehmen|auftrag liefern|bestellung erfüllen|dringend|urgent|customer order/i,title:'Kundenaufträge',summary:'Kundenaufträge sind Verpflichtungen mit Menge, Preis und oft Frist. Umsatz entsteht nur, wenn die zugesagte Leistung tatsächlich erfüllt wird.',steps:['Menge, Verkaufspreis und Frist lesen.','Verfügbaren Bestand und Herstellbarkeit prüfen.','Transportkapazität und erwartete Kosten einbeziehen.','Auftrag annehmen, Ware bereitstellen und Lieferung abschließen.'],tip:'Ein hoher Umsatz ist nicht automatisch ein guter Auftrag. Marge und Lieferfähigkeit entscheiden.'},
+        {id:'delivery',pattern:/lieferung|ausliefern|transport|fuhrpark|fahrzeug|route|fracht|delivery|freight|fleet/i,title:'Transport & Lieferung',summary:'Eine Lieferung bewegt Ware zwischen Orten bzw. erfüllt einen Auftrag. Fahrzeug, Kapazität, Route, Bestand und Zeit müssen zusammenpassen.',steps:['Ware und Ziel prüfen.','Passendes verfügbares Fahrzeug wählen.','Kapazität, Fahrzeit und Kosten kontrollieren.','Lieferung starten und bis zum Abschluss verfolgen.'],tip:'Ware gilt nicht als zugestellt, nur weil der Auftrag gestartet wurde. Laufende Transporte bleiben operative Vorgänge.'},
+        {id:'market',pattern:/spielermarkt|warenmarkt|markt|handeln|angebot erstellen|verkaufsangebot|market/i,title:'Markt & Handel',summary:'Am Markt handelst du mit Preisen und knappen Ressourcen. Jede Transaktion sollte zur Liquidität und zur operativen Strategie passen.',steps:['Aktuellen Bestand und Bedarf prüfen.','Preis mit Alternativen bzw. Produktionskosten vergleichen.','Menge und verfügbare Mittel festlegen.','Handel durchführen und danach Bestand/Geld kontrollieren.'],tip:'Bewerte nicht nur den Stückpreis. Gebühren, Transport, Kapitalbindung und Zeit können die Marge verändern.'},
+        {id:'coinmarket',pattern:/coinmarkt|coins verkaufen|coins kaufen|coin order|coin-?markt/i,title:'Coin-Markt',summary:'Der Coin-Markt ist getrennt vom normalen Warenbestand. Angebote und Käufe verändern Coin-Bestand und die dafür vorgesehene Gegenleistung.',steps:['Coin-Bestand und gewünschte Menge prüfen.','Preis des Angebots kontrollieren.','Order erstellen oder vorhandene Order kaufen.','Nach Abschluss Wallet und Transaktion prüfen.'],tip:'Coins und Firmengeld sind unterschiedliche Systeme. Eine Coin-Transaktion ersetzt keinen operativen Unternehmensgewinn.'},
+        {id:'finance',pattern:/finanz|liquidität|kredit|darlehen|rate|tilgung|geldtransfer|überweisen|finance|loan/i,title:'Finanzen & Kredite',summary:'Finanzen entscheiden, ob dein Betrieb seine laufenden Verpflichtungen erfüllen und weiter investieren kann.',steps:['Aktuellen Geldbestand und laufende Kosten prüfen.','Investition oder Kredit auf Gesamtkosten bewerten.','Reserve für Betrieb, Personal, Wartung und Beschaffung lassen.','Nach Transaktion neue Liquidität kontrollieren.'],tip:'Wachstum ist nur sinnvoll, wenn der Betrieb danach noch handlungsfähig bleibt.'},
+        {id:'expansion',pattern:/ausbau|erweiter|bau|construction|expansion|neuer betrieb|weiterer betrieb/i,title:'Ausbau & Expansion',summary:'Ausbau erhöht Möglichkeiten und Kapazität, bindet aber Geld und häufig Zeit. Neue Betriebe besitzen eigene operative Anforderungen.',steps:['Nutzen und benötigte Kapazität bestimmen.','Kosten und Bau-/Einrichtungszeit prüfen.','Finanzierungsreserve einplanen.','Ausbau starten und Abschluss abwarten, bevor du mit der neuen Kapazität planst.'],tip:'Plane Folgeinvestitionen mit ein: Fläche allein produziert noch nichts; oft folgen Maschinen, Personal und Lager.'},
+        {id:'premium',pattern:/premium|coins kaufen|coinpaket|bonus|firmengeld mit coins|shop/i,title:'Coins, Premium & Firmengeld',summary:'Coins und Premium sind Zusatzsysteme. Firmengeld bleibt die operative Unternehmenswährung und wird getrennt verwaltet.',steps:['Prüfe, welches Paket oder welche Funktion du wirklich nutzen möchtest.','Bei Kauf in der App bestätigt der jeweilige Store die Zahlung.','ORVUNO schreibt die bestätigte Berechtigung serverseitig gut.','Coin→Firmengeld-Tausch erfolgt anschließend als interne Spieltransaktion.'],tip:'Ein externer Kauf darf nie allein durch den Browser gutgeschrieben werden; ORVUNO bestätigt Käufe serverseitig.'},
+        {id:'reputation',pattern:/reputation|ruf|ansehen|zufriedenheit/i,title:'Ruf & Reputation',summary:'Reputation bildet ab, wie zuverlässig dein Unternehmen Aufträge und Beziehungen bedient. Sie kann spätere Chancen und Anforderungen beeinflussen.',steps:['Auftragsbedingungen vor Annahme prüfen.','Zuverlässig und fristgerecht liefern.','Engpässe vermeiden, die zugesagte Leistungen gefährden.','Entwicklung des Rufes nach relevanten Aktionen beobachten.'],tip:'Kurzfristiger Umsatz kann langfristig teuer werden, wenn du regelmäßig nicht erfüllbare Aufträge annimmst.'},
+        {id:'solar',pattern:/solar|energie|strom/i,title:'Energie & Solar',summary:'Energieinvestitionen sind langfristige Unternehmensentscheidungen. Anschaffungskosten stehen möglichen laufenden Vorteilen gegenüber.',steps:['Investitionskosten prüfen.','Erwarteten Nutzen und Laufzeit vergleichen.','Liquiditätsreserve berücksichtigen.','Investition durchführen und Wirkung in den Finanzen beobachten.'],tip:'Langfristige Einsparungen helfen nur, wenn die Anfangsinvestition den Betrieb nicht zahlungsunfähig macht.'},
+        {id:'save',pattern:/speicher|spielstand|gespeichert|save/i,title:'Spielstand & Synchronisierung',summary:'ORVUNO synchronisiert wichtige Zustände mit dem Server. Statusanzeigen helfen zu erkennen, ob Änderungen bereits übernommen wurden.',steps:['Aktion abschließen.','Kurz auf die Rückmeldung bzw. Speicheranzeige achten.','Bei Verbindungsfehler nicht dieselbe kostenpflichtige Aktion hektisch mehrfach auslösen.','Nach Wiederverbindung Status erneut prüfen.'],tip:'Bei unklarer Zahlungs- oder Ressourcenlage zuerst den aktuellen Serverstand prüfen, bevor du erneut klickst.'}
+      ];
+
+      const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const normalize=s=>String(s||'').replace(/\s+/g,' ').trim();
+      function removeOverlay(){document.querySelector('.orvuno-help-overlay')?.remove();}
+
+      function openContext(rule,sourceText=''){
+        if(!rule)return;
+        removeOverlay();
+        const ov=document.createElement('div');ov.className='orvuno-help-overlay';
+        const card=document.createElement('section');card.className='orvuno-help-card';card.style.width='min(720px,95vw)';
+        card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start"><div><small style="color:#f4bd43;font-weight:900">KONTEXTHILFE</small><h2 style="margin:6px 0 8px">${esc(rule.title)}</h2>${sourceText?`<div style="color:#91a7c2;font-size:13px">Zu: ${esc(sourceText.slice(0,120))}</div>`:''}</div><button data-help-close style="border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer">✕</button></div><p style="line-height:1.55;color:#dce3ed">${esc(rule.summary)}</p><h3 style="color:#f4bd43;margin:18px 0 6px">So läuft diese Spielsequenz ab</h3><ol class="orvuno-context-flow">${rule.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol><div class="orvuno-context-note"><strong>Wichtig:</strong> ${esc(rule.tip)}</div><div class="orvuno-help-actions"><button data-full-help>Komplette Spielhilfe</button><button data-start-tutorial>▶ Tutorial</button><button data-help-close>Schließen</button></div>`;
+        ov.append(card);document.body.append(ov);ov.onclick=e=>{if(e.target===ov)removeOverlay();};card.querySelectorAll('[data-help-close]').forEach(b=>b.onclick=removeOverlay);card.querySelector('[data-full-help]').onclick=()=>{removeOverlay();openHelp();};card.querySelector('[data-start-tutorial]').onclick=()=>{removeOverlay();openTutorial(0,{manual:true});};
+      }
+
+      function openHelp(){
+        removeOverlay();
+        const ov=document.createElement('div');ov.className='orvuno-help-overlay';
+        const card=document.createElement('section');card.className='orvuno-help-card';
+        card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start"><div><small style="color:#f4bd43;font-weight:900">ORVUNO HILFE</small><h2 style="margin:5px 0 6px">So funktionieren die Spielbereiche</h2><p style="margin:0;color:#b9c5d6">Diese Hilfe gilt identisch für Webseite und App. Kleine ?-Symbole erklären zusätzlich einzelne Aktionen direkt im jeweiligen Bereich.</p></div><button data-help-close style="border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer">✕</button></div><div class="orvuno-help-grid">${topics.map(([i,t,d])=>`<article class="orvuno-help-topic"><h3>${i} ${esc(t)}</h3><div>${esc(d)}</div></article>`).join('')}</div><div class="orvuno-help-actions"><button data-start-tutorial>▶ Tutorial starten</button><button data-help-close>Schließen</button></div>`;
+        ov.append(card);document.body.append(ov);ov.onclick=e=>{if(e.target===ov)removeOverlay();};card.querySelectorAll('[data-help-close]').forEach(b=>b.onclick=removeOverlay);card.querySelector('[data-start-tutorial]').onclick=()=>{removeOverlay();openTutorial(0,{manual:true});};
+      }
+
+      async function markTutorial({completed=false}={}){
+        try{
+          const api=window.worldAccounts?.authApi;
+          if(api?.markTutorialSeen)return await api.markTutorialSeen({completed});
+        }catch(error){console.warn('Tutorialstatus konnte serverseitig nicht gespeichert werden',error);}
+        return null;
+      }
+      function localTutorialKey(user=window.worldCurrentUser||{}){return `orvuno.tutorial.seen.v2.${user.public_id||user.id||'local'}`;}
+      function rememberLocalSeen(user=window.worldCurrentUser||{}){try{localStorage.setItem(localTutorialKey(user),'1');}catch{}}
+      function locallySeen(user=window.worldCurrentUser||{}){try{return localStorage.getItem(localTutorialKey(user))==='1';}catch{return false;}}
+
+      function openTutorial(index=0,{manual=false}={}){
+        removeOverlay();
+        const step=tutorial[Math.max(0,Math.min(index,tutorial.length-1))];
+        const ov=document.createElement('div');ov.className='orvuno-help-overlay';
+        const card=document.createElement('section');card.className='orvuno-help-card';card.style.width='min(720px,94vw)';
+        card.innerHTML=`<small style="color:#f4bd43;font-weight:900">TUTORIAL ${index+1}/${tutorial.length}</small><h2 style="margin:8px 0 12px">${esc(step[0])}</h2><p style="font-size:17px;line-height:1.65;color:#dce3ed">${esc(step[1])}</p><div style="height:6px;border-radius:999px;background:#1e293b;overflow:hidden;margin:18px 0"><div style="height:100%;width:${Math.round(((index+1)/tutorial.length)*100)}%;background:#f4bd43"></div></div><div class="orvuno-help-actions"><button data-prev ${index===0?'disabled':''}>Zurück</button>${index<tutorial.length-1?'<button data-next>Weiter</button>':'<button data-finish>Fertig</button>'}<button data-skip>${manual?'Schließen':'Später im Profil ansehen'}</button></div>`;
+        ov.append(card);document.body.append(ov);
+        const prev=card.querySelector('[data-prev]');if(prev)prev.onclick=()=>openTutorial(index-1,{manual});
+        const next=card.querySelector('[data-next]');if(next)next.onclick=()=>openTutorial(index+1,{manual});
+        const finish=card.querySelector('[data-finish]');if(finish)finish.onclick=async()=>{rememberLocalSeen();await markTutorial({completed:true});removeOverlay();};
+        card.querySelector('[data-skip]').onclick=()=>removeOverlay();
+      }
+
+      async function maybeFirstTutorial(user=window.worldCurrentUser||{}){
+        if(!user||!Object.keys(user).length)return;
+        const seen=!!(user.tutorial_seen_at||user.tutorialSeenAt)||locallySeen(user);
+        if(seen)return;
+        rememberLocalSeen(user);
+        await markTutorial({completed:false});
+        setTimeout(()=>openTutorial(0,{manual:false}),650);
+      }
+
+      function installFab(){if(document.querySelector('.orvuno-help-fab'))return;const b=document.createElement('button');b.className='orvuno-help-fab';b.type='button';b.setAttribute('aria-label','Hilfe und Tutorial');b.title='Hilfe und Tutorial';b.textContent='?';b.onclick=openHelp;document.body.append(b);}
+
+      function injectLoginContext(){
+        document.querySelectorAll('h1').forEach(h=>{
+          if(!/Anmelden|Registrieren|Sign in|Register/i.test(h.textContent||''))return;
+          const panel=h.parentElement;if(!panel||panel.querySelector('.orvuno-login-context'))return;
+          const english=/Sign in|Register/i.test(h.textContent||'');
+          const box=document.createElement('div');box.className='orvuno-login-context';
+          box.innerHTML=english?'<strong>What is ORVUNO?</strong><br>ORVUNO is an economy and business simulation. You build a company, source materials, manage storage, staff machines, produce goods, fulfill customer orders, organize transport and reinvest profits.<ul><li>Server-backed player account and persistent company state</li><li>Production, logistics, finance, markets and multiplayer economy</li><li>Contextual ? help and a guided tutorial inside the game</li></ul>':'<strong>Was ist ORVUNO?</strong><br>ORVUNO ist eine Wirtschafts- und Unternehmenssimulation. Du baust einen Betrieb auf, beschaffst Rohstoffe, verwaltest Lager und Personal, produzierst Waren, erfüllst Kundenaufträge, organisierst Transporte und reinvestierst Gewinne.<ul><li>Serverbasierter Spieleraccount und dauerhafter Unternehmensstand</li><li>Produktion, Logistik, Finanzen, Märkte und Spielerwirtschaft</li><li>Kontextuelle ?-Hilfe und ein geführtes Tutorial direkt im Spiel</li></ul>';
+          const status=[...panel.children].find(el=>/Spielserver|Game server/i.test(el.textContent||''));if(status)panel.insertBefore(box,status);else panel.append(box);
+        });
+      }
+
+      function matchingContextRule(el){
+        const own=normalize(el.textContent).slice(0,180);if(!own||own==='?'||own.length<3)return null;
+        const scope=el.closest('section,article,[role="dialog"],.modal,.dialog,[data-view],[data-panel]');
+        const heading=scope?.querySelector?.('h1,h2,h3,[role="heading"]');
+        const context=normalize(`${own} ${heading?.textContent||''}`);
+        return contextRules.find(rule=>rule.pattern.test(context))||null;
+      }
+
+      function attachContextHelp(el,rule){
+        if(!el||!rule||el.dataset.orvunoContextHelpDecorated==='1'||el.closest('.orvuno-help-overlay')||el.classList?.contains('orvuno-context-help'))return;
+        el.dataset.orvunoContextHelpDecorated='1';
+        const help=document.createElement('button');help.type='button';help.className='orvuno-context-help';help.textContent='?';help.title=`Hilfe: ${rule.title}`;help.setAttribute('aria-label',`Hilfe zu ${rule.title}`);help.dataset.orvunoContextRule=rule.id;
+        help.onclick=e=>{e.preventDefault();e.stopPropagation();openContext(rule,normalize(el.textContent));};
+        if(/^H[1-6]$/.test(el.tagName)||el.getAttribute('role')==='heading')el.append(help);else el.insertAdjacentElement('afterend',help);
+      }
+
+      function scanContextHelp(root=document){
+        const nodes=[];
+        if(root?.matches?.('h2,h3,button,[role="button"],[role="tab"],a'))nodes.push(root);
+        root?.querySelectorAll?.('h2,h3,button,[role="button"],[role="tab"],a').forEach(x=>nodes.push(x));
+        for(const el of nodes){
+          if(el.dataset.orvunoContextHelpDecorated==='1'||el.closest('.orvuno-help-overlay')||el.classList?.contains('orvuno-context-help'))continue;
+          const text=normalize(el.textContent);
+          if(!text||text.length>150||/^(schließen|close|zurück|weiter|ok|abbrechen|cancel|✕)$/i.test(text))continue;
+          const rule=matchingContextRule(el);if(rule)attachContextHelp(el,rule);
+        }
+      }
+
+      function start(){
+        installFab();injectLoginContext();scanContextHelp(document);
+        let scanQueued=false;
+        const observer=new MutationObserver(records=>{
+          injectLoginContext();
+          if(scanQueued)return;scanQueued=true;
+          requestAnimationFrame(()=>{scanQueued=false;for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1)scanContextHelp(node);});
+        });
+        observer.observe(document.body,{childList:true,subtree:true});
+        window.addEventListener('world:user-login',e=>maybeFirstTutorial(e.detail?.user||window.worldCurrentUser||{}));
+        window.addEventListener('world:profile-updated',e=>{if(e.detail?.user&&!window.worldCurrentUser)window.worldCurrentUser=e.detail.user;});
+        window.orvunoHelp={open:openHelp,openContext,startTutorial:options=>openTutorial(0,{manual:true,...(options||{})}),scan:()=>scanContextHelp(document),topics,contextRules};
+      }
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+    })();
+  </script>
 </body>
 </html>
