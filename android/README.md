@@ -43,18 +43,30 @@ Erforderliche serverseitige Konfiguration für `world-google-play`:
 
 - `GOOGLE_PLAY_PACKAGE_NAME=de.nadena.orvuno`
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` = Service-Account-JSON mit Zugriff auf die Google Play Developer API
-- `GOOGLE_PLAY_SKU_MAP_JSON` = JSON-Mapping interner ORVUNO-SKUs auf die tatsächlich in Play Console angelegten Produkt-IDs
+- `GOOGLE_PLAY_SKU_MAP_JSON` = optionaler Override für das unten fest hinterlegte Standard-Mapping
 
-Beispielstruktur für das Mapping (nur Struktur, keine erfundenen Play-IDs verwenden):
+Die in der Google Play Console angelegten Produkt-IDs wurden mit den aktiven ORVUNO-Produkten abgeglichen. Standard-Mapping:
 
 ```json
 {
-  "coins_100": "PLAY_PRODUCT_ID_HERE",
-  "premium_4w": "PLAY_PRODUCT_ID_HERE"
+  "coins_100": "orvuno_coins_100",
+  "coins_550": "orvuno_coins_550",
+  "coins_1200": "orvuno_coins_1200",
+  "coins_2600": "orvuno_coins_2600",
+  "coins_6000": "orvuno_coins_6000",
+  "coins_13000": "orvuno_coins_13000",
+  "coins_26000": "orvuno_coins_26000",
+  "coins_50000": "orvuno_coins_50000",
+  "premium_1m": "orvuno_premium_1m",
+  "premium_3m": "orvuno_premium_3m",
+  "premium_6m": "orvuno_premium_6m",
+  "premium_12m": "orvuno_premium_12m"
 }
 ```
 
-Ohne gültiges Mapping bleibt der Google-Play-Kaufpfad absichtlich gesperrt. Preise werden in der App aus dem Google-Play-Katalog geladen und nicht aus den Webpreisen als kaufbare Play-Preise übernommen.
+Hinweis: Das in Google Play als „4 Wochen Premium“ dargestellte Produkt verwendet die Produkt-ID `orvuno_premium_1m`. Das entspricht dem aktiven ORVUNO-Produkt `premium_1m` mit 30 Tagen Laufzeit.
+
+Das Mapping ist nicht geheim und liegt deshalb als geprüfter Standard direkt in `world-google-play`. `GOOGLE_PLAY_SKU_MAP_JSON` bleibt als optionaler Override erhalten, falls Produkt-IDs später geändert werden. Preise werden in der App aus dem Google-Play-Katalog geladen und nicht aus den Webpreisen als kaufbare Play-Preise übernommen.
 
 Der Backend-Pfad verifiziert jeden `purchaseToken` über die Google Play Developer API, vergibt die Gutschrift idempotent und konsumiert die aktuellen Einmalkauf-Produkte anschließend. Ein Retry darf dadurch keine zweite Gutschrift erzeugen.
 
