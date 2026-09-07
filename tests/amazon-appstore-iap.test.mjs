@@ -22,7 +22,7 @@ assert.match(amazon,/bridge\.purchase\(amazonSku\)/,'Amazon checkout must call t
 assert.match(amazon,/orvuno:amazon-iap-user/,'Amazon catalog must refresh after the native Amazon user becomes available');
 assert.match(amazon,/Über Amazon kaufen/,'Amazon must show a usable fallback label while catalog metadata is unavailable');
 assert.match(css,/@media\(max-width:760px\)\{\.sitebar\{position:static\}/,'Mobile public pages must not lose reading space to a sticky header');
-assert.ok(gameId.includes("GAME_ID_ENDPOINT='world-game-id-auth'"),'Game-ID access must remain enabled');
-assert.ok(gameId.includes('ORV-${compact.slice(0,5)}'),'Game-ID format must remain ORV-XXXXX-XXXXX-XXXXX-XXXXX');
+assert.match(gameId,/Spiel starten/,'Direct player start must remain available');
+assert.doesNotMatch(gameId,/Spiel-ID laden|ORV-XXXXX-XXXXX-XXXXX-XXXXX|oder vorhandenen Spielstand laden/,'Amazon entry screen must not expose game-ID recovery');
 
-console.log('Amazon Appstore IAP and mobile guide regression checks passed.');
+console.log('Amazon Appstore IAP, direct player access and mobile guide regression checks passed.');
