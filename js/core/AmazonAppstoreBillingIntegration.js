@@ -7,7 +7,7 @@ const AMAZON_SKU_MAP=Object.freeze({
 const INTERNAL_BY_AMAZON=Object.freeze(Object.fromEntries(Object.entries(AMAZON_SKU_MAP).map(([k,v])=>[v,k])));
 const productCache=new Map();
 const inFlightReceipts=new Set();
-let bridgeReady=false;
+let bridgeReady=false,uiQueued=false;
 
 const nativeBridge=()=>window.OrvunoAmazonIap;
 const authApi=()=>window.worldAccounts?.authApi;
@@ -64,16 +64,22 @@ function updateAmazonCatalogUi(){
     if(!amazonSku)return;
     button.dataset.amazonSku=amazonSku;
     const product=productCache.get(amazonSku);
-    if(product?.price){button.textContent=String(product.price);button.disabled=false;button.title='Abrechnung über Amazon Appstore';}
-    else{button.disabled=true;button.title='Amazon-Preis wird geladen …';}
+    if(product?.price){
+      const price=String(product.price);
+      if(button.textContent!==price)button.textContent=price;
+      button.disabled=false;button.title='Abrechnung über Amazon Appstore';
+    }else{button.disabled=true;button.title='Amazon-Preis wird geladen …';}
     if(internalSku==='premium_1m'){
-      const card=button.closest('article');
-      const title=card?.querySelector('h3');
-      const sub=card?.querySelector('p');
-      if(title)title.textContent='4 Wochen Premium';
-      if(sub)sub.textContent='28 Tage Premium';
+      const card=button.closest('article'),title=card?.querySelector('h3'),sub=card?.querySelector('p');
+      if(title&&title.textContent!=='4 Wochen Premium')title.textContent='4 Wochen Premium';
+      if(sub&&sub.textContent!=='28 Tage Premium')sub.textContent='28 Tage Premium';
     }
   });
+}
+function queueUiUpdate(){
+  if(uiQueued)return;
+  uiQueued=true;
+  requestAnimationFrame(()=>{uiQueued=false;updateAmazonCatalogUi();});
 }
 function requestProducts(){
   const bridge=requireBridge();
@@ -83,8 +89,7 @@ function requestProducts(){
 export async function beginAmazonPurchase({internalSku}={}){
   const amazonSku=AMAZON_SKU_MAP[String(internalSku||'')];
   if(!amazonSku)throw new Error('Dieses Produkt ist im Amazon Appstore nicht verfügbar.');
-  const product=productCache.get(amazonSku);
-  if(!product)throw new Error('Der Amazon-Preis ist noch nicht geladen. Bitte einen Moment warten.');
+  if(!productCache.get(amazonSku))throw new Error('Der Amazon-Preis ist noch nicht geladen. Bitte einen Moment warten.');
   requireBridge().purchase(amazonSku);
   return {success:true,pending:true,provider:'amazon',sku:internalSku,amazonSku};
 }
@@ -100,18 +105,15 @@ function install(){
   if(bridgeReady)return;
   bridgeReady=true;
   window.addEventListener('orvuno:amazon-iap-products',event=>{
-    const products=event.detail?.products||{};
-    for(const [sku,p] of Object.entries(products))productCache.set(sku,p||{});
-    updateAmazonCatalogUi();
+    for(const [sku,p] of Object.entries(event.detail?.products||{}))productCache.set(sku,p||{});
+    queueUiUpdate();
     window.dispatchEvent(new CustomEvent('world:amazon-catalog-ready',{detail:{products:getAmazonCatalogDetails()}}));
   });
-  window.addEventListener('orvuno:amazon-iap-purchase',event=>{
-    verifyReceipt(event.detail||{}).catch(error=>feedback(error?.message||String(error),'error'));
-  });
+  window.addEventListener('orvuno:amazon-iap-purchase',event=>verifyReceipt(event.detail||{}).catch(error=>feedback(error?.message||String(error),'error')));
   window.addEventListener('orvuno:amazon-iap-error',event=>feedback(event.detail?.message||'Amazon-IAP-Fehler','error'));
-  const observer=new MutationObserver(()=>updateAmazonCatalogUi());
+  const observer=new MutationObserver(mutations=>{if(mutations.some(m=>m.addedNodes.length||m.removedNodes.length))queueUiUpdate();});
   observer.observe(document.documentElement,{childList:true,subtree:true});
-  updateAmazonCatalogUi();
+  queueUiUpdate();
   try{requestProducts();}catch(error){feedback(error?.message||String(error),'error');}
   setTimeout(()=>{try{restoreAmazonPurchases();}catch{}},800);
 }
