@@ -4,6 +4,7 @@
 
 const params=new URLSearchParams(location.search);
 const explicitStore=String(params.get('orvuno_store')||params.get('app')||'').toLowerCase();
+const appSource=params.get('source')==='app'||params.get('orvuno_app')==='android';
 const androidReferrer=/^android-app:\/\//i.test(String(document.referrer||''));
 const isStandalone=()=>window.matchMedia?.('(display-mode: standalone)')?.matches||window.navigator.standalone===true;
 
@@ -23,7 +24,15 @@ function detectStore(){
     rememberStore(detected);
     return detected;
   }
-  return persisted==='google'||persisted==='amazon'?persisted:'web';
+  // Backward compatibility for older TWA builds whose start_url only contains source=app.
+  // A standalone app launch is treated as Google Play unless Amazon was explicitly persisted.
+  if(appSource&&isStandalone()){
+    const detected=persisted==='amazon'?'amazon':'google';
+    rememberStore(detected);
+    return detected;
+  }
+  // A normal browser visit must remain web even if the same Chrome profile used the TWA before.
+  return 'web';
 }
 
 const detectedStore=detectStore();
@@ -83,7 +92,7 @@ async function registerServiceWorker(){
 }
 
 window.orvunoAppBridge={
-  version:3,
+  version:4,
   standalone:isStandalone(),
   store:detectedStore,
   isNativeApp:nativeApp,
