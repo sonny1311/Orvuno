@@ -4,7 +4,8 @@ const GAME_ID_ENDPOINT='world-game-id-auth';
 const GAME_ID_ALPHABET=/[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 
 export function normalizeGameId(value=''){
-  return String(value||'').toUpperCase().replace(GAME_ID_ALPHABET,'');
+  const raw=String(value||'').trim().toUpperCase().replace(/^ORV[\s-]*/,'');
+  return raw.replace(GAME_ID_ALPHABET,'');
 }
 
 export function formatGameId(value=''){
