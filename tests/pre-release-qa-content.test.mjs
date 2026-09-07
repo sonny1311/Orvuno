@@ -80,7 +80,7 @@ assert.match(updates,/Ausführliche Spielhilfe und Tutorial/,'Hilfe-/Tutorial-Up
 assert.match(updates,/Öffentliche Spielanleitung und FAQ/,'Öffentliche Content-Erweiterung fehlt');
 assert.match(publicCss,/@media\(max-width:760px\)/,'Öffentliche Inhaltsseiten besitzen kein Mobile-Layout');
 
-assert.match(gameId,/normalizePlayerName/,'Benutzername wird im Spiel-ID-Zugang nicht normalisiert');
+assert.match(gameId,/normalizePlayerName/,'Benutzername wird im Spielzugang nicht normalisiert');
 assert.match(gameId,/USERNAME_MIN=3/,'Benutzername hat keine Mindestlänge');
 assert.match(gameId,/USERNAME_MAX=24/,'Benutzername hat keine Höchstlänge');
 assert.match(gameId,/privacyBox\.required=true/,'Datenschutz-Kenntnisnahme ist nicht verpflichtend');
@@ -89,15 +89,17 @@ assert.match(gameId,/privacyLink\.dataset\.orvunoPrivacyLink='1'/,'Datenschutzer
 assert.match(gameId,/frame\.src='\/datenschutz\.html'/,'Datenschutzerklärung ist nicht direkt im Einstieg lesbar');
 assert.match(gameId,/privacyAccepted:privacyBox\.checked/,'Spielstart übergibt die Datenschutz-Kenntnisnahme nicht');
 assert.match(gameId,/Bitte bestätige zuerst die Datenschutzerklärung/,'Spielstart kann Datenschutzpflicht nicht verständlich ablehnen');
-assert.match(gameId,/Keine Registrierung, keine E-Mail, kein Passwort/,'Passwortloser Spiel-ID-Zugang wird nicht verständlich erklärt');
-assert.match(gameId,/Spiel-ID laden/,'Wiederherstellung auf anderem Gerät fehlt');
-assert.match(gate,/openGameIdAccess\(\)/,'Access-Gate öffnet nicht den passwortlosen Spiel-ID-Zugang');
-assert.match(gate,/resumeLocalPlayer\(\)/,'Lokale Spiel-ID wird nicht automatisch wiederhergestellt');
+assert.match(gameId,/Spiel starten/,'Direkter Spielstart fehlt');
+assert.doesNotMatch(gameId,/Spiel-ID laden|ORV-XXXXX-XXXXX-XXXXX-XXXXX|oder vorhandenen Spielstand laden/,'Spiel-ID-Wiederherstellung ist im Einstieg noch sichtbar');
+assert.match(gate,/openPlayerAccess\(\)/,'Access-Gate öffnet nicht den direkten Spielerzugang');
+assert.match(gate,/resumeLocalPlayer\(\)/,'Unsichtbarer Alt-Spielstand-Fallback fehlt');
+assert.doesNotMatch(gate,/ensureForCurrentPlayer\(\)/,'Neue Spieler bekommen weiterhin automatisch eine Wiederherstellungskennung');
 assert.doesNotMatch(gate,/AccountAuthDialog|renderRecovery|recoveryPending/,'Aktiver Spielzugang hängt noch am alten Registrierungs-/Recovery-Dialog');
 
 assert.match(privacy,/<title>Datenschutzerklärung – ORVUNO<\/title>/,'Öffentliche Datenschutzerklärung fehlt oder ist falsch benannt');
-assert.match(privacy,/Benutzername und Spiel-ID statt Registrierung/,'Datenschutzerklärung beschreibt den neuen Zugang nicht');
-assert.match(privacy,/kryptografischer Hash der Spiel-ID/,'Datenschutzerklärung beschreibt die sichere Spiel-ID-Zuordnung nicht');
+assert.match(privacy,/Benutzername und lokale Spielsitzung/,'Datenschutzerklärung beschreibt den aktuellen Zugang nicht');
+assert.match(privacy,/kein sichtbarer Wiederherstellungscode/,'Datenschutzerklärung behauptet weiterhin einen sichtbaren Wiederherstellungscode');
+assert.match(privacy,/technische Wiederherstellungskennungen/,'Datenschutzerklärung verschweigt vorhandene Altkennungen');
 assert.match(privacy,/Hosting und Datenbank/,'Datenschutzerklärung beschreibt technische Dienstleister nicht');
 assert.match(privacy,/Amazon Appstore/,'Datenschutzerklärung beschreibt Amazon-Zahlungen nicht');
 assert.match(privacy,/href="\/konto-loeschen\.html"/,'Datenschutzerklärung verweist nicht auf die Kontolöschung');
@@ -122,4 +124,4 @@ assert.match(play,/restoreGooglePlayPurchases\(\)/,'Play-Restore verwendet nicht
 assert.match(play,/edge\('verify_purchase'/,'Play-Käufe werden nicht serverseitig verifiziert');
 assert.doesNotMatch(play,/coin_wallet|balance\s*\+=|premiumUntil\s*=/i,'Play-Client enthält verdächtige clientseitige Entitlement-Gutschrift');
 
-console.log('✅ PRE-RELEASE QA CONTENT/GAME-ID/PRIVACY/HELP/ADSENSE/PUBLIC-PAGES TESTS ERFOLGREICH');
+console.log('✅ PRE-RELEASE QA CONTENT/ACCESS/PRIVACY/HELP/ADSENSE/PUBLIC-PAGES TESTS ERFOLGREICH');
