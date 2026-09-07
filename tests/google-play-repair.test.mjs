@@ -8,11 +8,15 @@ const platform=read('js/core/AppPlatformBridge.js');
 const storeBootstrap=read('js/core/StorePaymentProviderBootstrap.js');
 const playClient=read('js/core/GooglePlayBillingIntegration.js');
 const playPriceUi=read('js/core/GooglePlayPriceUiIntegration.js');
+const premiumUi=read('js/core/PremiumPlanUIIntegration.js');
+const authClient=read('js/core/AuthApiClient.js');
+const accessGate=read('js/core/GameAccessGate.js');
 const mobileUi=read('js/core/MobileAppUsabilityIntegration.js');
 const edge=read('supabase/functions/world-google-play/index.ts');
 const migration=read('database/031_google_play_billing_fulfillment.sql');
 const appLoader=read('js/app-loader.js');
 const assetlinks=read('api/assetlinks.js');
+const staticAssetlinks=JSON.parse(read('.well-known/assetlinks.json'));
 const vercel=JSON.parse(read('vercel.json'));
 
 function test(name,fn){
@@ -95,6 +99,21 @@ test('Google Play price UI disables purchases until Play catalog is available',(
   assert(playPriceUi.includes('In Google Play nicht verfügbar'));
 });
 
+test('premium UI uses the active one-month Google Play SKU',()=>{
+  assert(premiumUi.includes("id:'premium_1m'"));
+  assert(premiumUi.includes('durationDays:30'));
+  assert(!premiumUi.includes("id:'premium_4w'"));
+});
+
+test('password recovery callbacks are handled before game access is granted',()=>{
+  assert(authClient.includes('RECOVERY_FLAG_KEY'));
+  assert(authClient.includes('preparePasswordRecovery()'));
+  assert(authClient.includes('grant_type=pkce'));
+  assert(authClient.includes('isPasswordRecovery()'));
+  assert(accessGate.includes('preparePasswordRecovery?.()'));
+  assert(accessGate.includes('isPasswordRecovery?.()'));
+});
+
 test('Google Play edge verifies purchase server-side and uses hashed token idempotency key',()=>{
   assert(edge.includes('androidpublisher.googleapis.com/androidpublisher/v3/applications'));
   assert(edge.includes('/purchases/products/'));
@@ -142,7 +161,7 @@ test('mobile DOM normalization is throttled and limited to structural mutations'
   assert(mobileUi.includes('observer.disconnect()'));
 });
 
-test('Digital Asset Links route is fail-closed and package-bound',()=>{
+test('Digital Asset Links publishes verified fingerprints and remains package-bound',()=>{
   assert.deepEqual(vercel.rewrites,[{source:'/.well-known/assetlinks.json',destination:'/api/assetlinks'}]);
   const transformed=assetlinks.replace('export default function handler','function handler')+'\nthis.__handler=handler;';
   const execute=fingerprint=>{
@@ -153,12 +172,16 @@ test('Digital Asset Links route is fail-closed and package-bound',()=>{
     context.__handler({},res);
     return result;
   };
-  assert.equal(execute('').status,503);
-  const valid=Array.from({length:32},()=> 'AA').join(':');
-  const ok=execute(valid);
+  const ok=execute('');
   assert.equal(ok.status,200);
   assert.equal(ok.body[0].target.package_name,'de.nadena.orvuno');
-  assert.equal(ok.body[0].target.sha256_cert_fingerprints[0],valid);
+  const fingerprints=ok.body[0].target.sha256_cert_fingerprints;
+  assert.ok(fingerprints.length>=3);
+  for(const fingerprint of fingerprints)assert.match(fingerprint,/^(?:[A-F0-9]{2}:){31}[A-F0-9]{2}$/);
+  assert.deepEqual(staticAssetlinks[0].target.sha256_cert_fingerprints,fingerprints);
+  const extra=Array.from({length:32},()=> 'AA').join(':');
+  const withExtra=execute(extra);
+  assert(withExtra.body[0].target.sha256_cert_fingerprints.includes(extra));
 });
 
 console.log('All Google Play repair tests passed.');
