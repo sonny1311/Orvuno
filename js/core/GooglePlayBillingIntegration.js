@@ -108,7 +108,23 @@ export async function beginGooglePlayPurchase({internalSku}={}){
     return verified;
   }catch(error){
     if(response){try{await response.complete('fail');}catch(_e){}}
-    if(error?.name==='AbortError')throw new Error('Google-Play-Kauf wurde abgebrochen');
+    const errorName=String(error?.name||'').trim();
+    const errorMessage=String(error?.message||'').trim();
+    const errorCode=error?.code==null?'':String(error.code).trim();
+    console.error('[ORVUNO Google Play] Kauf fehlgeschlagen',{
+      stage:response?'after_checkout':'payment_request_show',
+      internalSku,
+      playSku:product.playSku,
+      name:errorName,
+      message:errorMessage,
+      code:errorCode
+    });
+    if(errorName==='AbortError'){
+      const details=[];
+      if(errorMessage)details.push(`Meldung: ${errorMessage}`);
+      if(errorCode)details.push(`Code: ${errorCode}`);
+      throw new Error(`Google Play AbortError${details.length?` – ${details.join(' · ')}`:''}`);
+    }
     throw error;
   }
 }
