@@ -1,4 +1,5 @@
-// ORVUNO – passwortloser Spielzugang über eine automatisch erzeugte Spiel-ID.
+// ORVUNO – passwortloser Spielzugang ohne sichtbare Kontokennung.
+// Ältere lokale Spiel-IDs bleiben ausschließlich als unsichtbarer Migrations-Fallback erhalten.
 const GAME_ID_STORAGE_KEY='orvuno.gameId';
 const GAME_ID_ENDPOINT='world-game-id-auth';
 const GAME_ID_ALPHABET=/[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
@@ -31,14 +32,14 @@ export function validatePlayerName(value=''){
 export class GameIdAccessClient{
   constructor({api}={}){this.api=api;}
   getLocalGameId(){try{return formatGameId(localStorage.getItem(GAME_ID_STORAGE_KEY)||'');}catch{return '';}}
-  saveLocalGameId(gameId){const formatted=formatGameId(gameId);if(normalizeGameId(formatted).length!==20)throw new Error('Spiel-ID ist ungültig');try{localStorage.setItem(GAME_ID_STORAGE_KEY,formatted);}catch{}return formatted;}
+  saveLocalGameId(gameId){const formatted=formatGameId(gameId);if(normalizeGameId(formatted).length!==20)throw new Error('Ungültige Wiederherstellungskennung');try{localStorage.setItem(GAME_ID_STORAGE_KEY,formatted);}catch{}return formatted;}
   clearLocalGameId(){try{localStorage.removeItem(GAME_ID_STORAGE_KEY);}catch{}}
   async request(action,data={},auth=false){
     const headers={apikey:this.api.publishableKey,'Content-Type':'application/json'};
     if(auth){const token=await this.api.ensureAccessToken();if(!token)throw new Error('Spielersitzung ist nicht verfügbar');headers.Authorization=`Bearer ${token}`;}
     const response=await fetch(`${this.api.baseUrl}/functions/v1/${GAME_ID_ENDPOINT}`,{method:'POST',headers,body:JSON.stringify({action,...data})});
     const body=await response.json().catch(()=>({}));
-    if(!response.ok||body?.success===false)throw new Error(body?.error||body?.message||`Spiel-ID-Fehler (${response.status})`);
+    if(!response.ok||body?.success===false)throw new Error(body?.error||body?.message||`Zugangsfehler (${response.status})`);
     return body;
   }
   acceptSession(session){if(!session?.access_token||!session?.refresh_token)throw new Error('Spielersitzung ist unvollständig');this.api.saveSession(session);return session;}
@@ -48,18 +49,14 @@ export class GameIdAccessClient{
     if(!name.success)throw new Error(name.error);
     if(!checked)throw new Error('Bitte bestätige zuerst die Datenschutzerklärung');
     const result=await this.request('create',{username:name.username,privacyAccepted:true,privacyVersion:'1.0'});
-    this.acceptSession(result.session);this.saveLocalGameId(result.gameId);return this.api.me();
+    this.acceptSession(result.session);
+    // Kompatibel mit einem kurzzeitig noch älteren Backend, ohne die Kennung im UI offenzulegen.
+    if(result?.gameId)try{this.saveLocalGameId(result.gameId);}catch{}
+    return this.api.me();
   }
-  async resumePlayer(gameId){const formatted=formatGameId(gameId);if(normalizeGameId(formatted).length!==20)throw new Error('Bitte eine vollständige Spiel-ID eingeben');const result=await this.request('resume',{gameId:formatted});this.acceptSession(result.session);this.saveLocalGameId(formatted);return this.api.me();}
-  async resumeLocalPlayer(){const id=this.getLocalGameId();if(!id)return null;try{return await this.resumePlayer(id);}catch(error){console.warn('Lokale Spiel-ID konnte nicht automatisch geladen werden',error);return null;}}
-  async ensureForCurrentPlayer(){
-    const local=this.getLocalGameId();if(local)return {success:true,gameId:local,local:true};
-    if(!this.api?.session?.access_token)return null;
-    const result=await this.request('issue',{},true);
-    if(result?.gameId)this.saveLocalGameId(result.gameId);
-    return result;
-  }
-  async rotateGameId(){const result=await this.request('rotate',{},true);if(!result?.gameId)throw new Error('Neue Spiel-ID wurde nicht zurückgegeben');const gameId=this.saveLocalGameId(result.gameId);window.dispatchEvent(new CustomEvent('world:game-id-changed',{detail:{gameId}}));return {...result,gameId};}
+  // Nur für bereits vorhandene lokale Alt-Spielstände. Es gibt keinen sichtbaren Eingabeweg mehr.
+  async resumePlayer(gameId){const formatted=formatGameId(gameId);if(normalizeGameId(formatted).length!==20)throw new Error('Ungültige Wiederherstellungskennung');const result=await this.request('resume',{gameId:formatted});this.acceptSession(result.session);this.saveLocalGameId(formatted);return this.api.me();}
+  async resumeLocalPlayer(){const id=this.getLocalGameId();if(!id)return null;try{return await this.resumePlayer(id);}catch(error){console.warn('Alter lokaler Spielzugang konnte nicht automatisch geladen werden',error);return null;}}
 }
 
 export class GameIdAccessDialog{
@@ -68,7 +65,7 @@ export class GameIdAccessDialog{
   async finish(user){if(this.onAuthenticated)await this.onAuthenticated(user);this.close();}
   closePrivacy(){this.privacyOverlay?.remove();this.privacyOverlay=null;}
   close(){this.closePrivacy();this.overlay?.remove();this.overlay=null;}
-  async run(button,task,status,busyText='Spielstand wird geladen …'){if(this.busy)return;this.busy=true;button.disabled=true;button.style.opacity='.6';status.textContent=busyText;status.style.color='#d7dee9';try{const user=await task();await this.finish(user);}catch(error){status.textContent=error?.message||String(error);status.style.color='#ff8f8f';}finally{this.busy=false;button.disabled=false;button.style.opacity='';}}
+  async run(button,task,status,busyText='Spiel wird geladen …'){if(this.busy)return;this.busy=true;button.disabled=true;button.style.opacity='.6';status.textContent=busyText;status.style.color='#d7dee9';try{const user=await task();await this.finish(user);}catch(error){status.textContent=error?.message||String(error);status.style.color='#ff8f8f';}finally{this.busy=false;button.disabled=false;button.style.opacity='';}}
   openPrivacy(){
     if(!this.overlay||this.privacyOverlay)return;
     const layer=this.el('div');this.privacyOverlay=layer;layer.dataset.orvunoPrivacyReader='1';
@@ -104,13 +101,6 @@ export class GameIdAccessDialog{
     newButton.onclick=()=>this.run(newButton,()=>this.client.createPlayer({username:nameInput.value,privacyAccepted:privacyBox.checked}),newStatus,'Spieler wird angelegt …');
     nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!newButton.disabled)newButton.click();});
 
-    const divider=this.el('div','oder vorhandenen Spielstand laden');Object.assign(divider.style,{textAlign:'center',color:'#8f9aad',margin:'22px 0 10px'});
-    const input=this.el('input');input.placeholder='ORV-XXXXX-XXXXX-XXXXX-XXXXX';input.autocomplete='off';input.autocapitalize='characters';input.spellcheck=false;Object.assign(input.style,{width:'100%',boxSizing:'border-box',padding:'14px 15px',border:'1px solid #465064',borderRadius:'10px',background:'#111827',color:'#fff',fontSize:'16px',textAlign:'center',letterSpacing:'1px',outline:'none'});
-    const loadButton=this.el('button','Spiel-ID laden');loadButton.type='button';Object.assign(loadButton.style,{width:'100%',marginTop:'10px',padding:'13px 16px',border:'1px solid #5b6578',borderRadius:'10px',background:'#151e2f',color:'#fff',fontSize:'16px',fontWeight:'800',cursor:'pointer'});
-    const note=this.el('div','Keine Registrierung, keine E-Mail, kein Passwort. ORVUNO erzeugt nach dem Start automatisch eine sichere Spiel-ID. Mit ihr kannst du denselben Spielstand später auf Handy, Tablet oder im Browser öffnen.');Object.assign(note.style,{marginTop:'18px',fontSize:'13px',lineHeight:'1.5',color:'#9faabc'});
-    const status=this.el('div','');Object.assign(status.style,{minHeight:'20px',marginTop:'14px',textAlign:'center',fontWeight:'700'});
-    loadButton.onclick=()=>this.run(loadButton,()=>this.client.resumePlayer(input.value),status);
-    input.addEventListener('keydown',e=>{if(e.key==='Enter')loadButton.click();});
-    panel.append(logo,sub,nameLabel,nameInput,nameHint,privacyRow,newButton,newStatus,divider,input,loadButton,note,status);overlay.append(panel);this.parent.append(overlay);nameInput.focus();
+    panel.append(logo,sub,nameLabel,nameInput,nameHint,privacyRow,newButton,newStatus);overlay.append(panel);this.parent.append(overlay);nameInput.focus();
   }
 }
