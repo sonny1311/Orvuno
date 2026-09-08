@@ -8,6 +8,10 @@ on:
       - 'qa/**'
   pull_request:
 
+concurrency:
+  group: orvuno-checks-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   syntax:
     runs-on: ubuntu-latest
