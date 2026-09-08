@@ -15,9 +15,9 @@ registerWorldContent({
   industries: [
     { id:"Brauerei", branchKey:"brewery", label:"Brauerei" },
     { id:"Getränkehersteller", branchKey:"beverage", label:"Getränkehersteller" },
-    { id:"Mineralbrunnen", branchKey:"beverage", label:"Mineralbrunnen" },
+    { id:"Mineralbrunnen", branchKey:"mineral_water", label:"Mineralbrunnen" },
     { id:"Schreinerei", branchKey:"carpentry", label:"Schreinerei" },
-    { id:"Tischlerei", branchKey:"carpentry", label:"Tischlerei" },
+    { id:"Tischlerei", branchKey:"joinery", label:"Tischlerei" },
     { id:"Landwirtschaftsbetrieb", branchKey:"farm", label:"Landwirtschaftsbetrieb" },
     { id:"Tierhaltung", branchKey:"livestock", label:"Tierhaltung" },
     { id:"Obstbau", branchKey:"orchard", label:"Obstbau" },
