@@ -44,6 +44,9 @@ jobs:
       - name: Run pre-release content, auth and help regression tests
         shell: bash
         run: node tests/pre-release-qa-content.test.mjs
+      - name: Run industry branch isolation regression test
+        shell: bash
+        run: node tests/industry-branch-integrity.test.mjs
       - name: Run five-minute coin time regression tests
         shell: bash
         run: node tests/coin-time-5min.test.mjs
