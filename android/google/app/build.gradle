@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'de.nadena.orvuno'
+    compileSdk 36
+
+    signingConfigs {
+        release {
+            def ks = System.getenv('ORVUNO_GOOGLE_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('ORVUNO_GOOGLE_STORE_PASSWORD')
+                keyAlias System.getenv('ORVUNO_GOOGLE_KEY_ALIAS')
+                keyPassword System.getenv('ORVUNO_GOOGLE_KEY_PASSWORD')
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId 'de.nadena.orvuno'
+        minSdk 21
+        targetSdk 36
+        versionCode 6
+        versionName '1.0.1'
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            if (System.getenv('ORVUNO_GOOGLE_KEYSTORE')) {
+                signingConfig signingConfigs.release
+            }
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.android.billingclient:billing:9.1.0'
+}
