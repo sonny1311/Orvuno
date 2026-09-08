@@ -3,6 +3,7 @@
 // ORVUNO
 // ============================================
 import "./core/GermanTechnicalErrorIntegration.js";
+import "./core/HelpQuestionMarkClickFixIntegration.js";
 import "./core/GlobalDarkThemeIntegration.js";
 import "./core/DarkMainNavigationIntegration.js";
 import "./core/DarkCommandCenterHeaderIntegration.js";
