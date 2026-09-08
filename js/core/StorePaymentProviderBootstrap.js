@@ -5,6 +5,10 @@ window.worldPaymentProviders??={};
 
 if(store==='google'){
   await import('./GooglePlayBillingIntegration.js');
+  // Native Android wrapper: use BillingClient directly instead of relying on TWA PaymentRequest.
+  if(window.OrvunoGooglePlay||window.OrvunoGoogleBilling){
+    await import('./GooglePlayNativeBillingIntegration.js');
+  }
 }else if(store==='amazon'){
   // Amazon-App: ausschließlich native Amazon-IAP-Brücke + serverseitige RVS-Prüfung.
   // Externe Web-Zahlungsanbieter werden in der Amazon-App nicht geladen.
