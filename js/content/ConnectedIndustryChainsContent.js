@@ -9,6 +9,7 @@ const s=(id,industries,label,materials,prices,distanceKm=60,deliveryHours=8)=>({
 
 export const ConnectedIndustryChainsContent={
  materials:[
+  m("wheat","Weizen"),m("barley","Gerste"),
   m("forest_seedlings","Forstsetzlinge","Stk"),m("roundwood_soft","Nadel-Rundholz","m3"),m("roundwood_hard","Laub-Rundholz","m3"),m("sugar_beet","Zuckerrüben"),m("flour_wheat","Weizenmehl"),
   m("milk","Rohmilch","l","cold"),m("butter","Butter","kg","cold"),m("cream","Sahne","l","cold"),m("cattle","Rinder","Stk","cold"),m("pigs","Schweine","Stk","cold"),m("beef","Rindfleisch","kg","cold"),m("pork","Schweinefleisch","kg","cold"),
   m("feed_grain","Futtergetreide"),m("salt","Salz"),m("spice_mix","Gewürzmischung"),m("silica_sand","Quarzsand"),m("soda_ash","Soda"),m("limestone","Kalkstein"),
