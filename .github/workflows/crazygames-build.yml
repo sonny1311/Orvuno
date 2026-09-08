@@ -1,0 +1,140 @@
+name: Build CrazyGames HTML5 package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - 'data/**'
+      - 'app-icon*.svg'
+      - 'manifest.webmanifest'
+      - 'datenschutz.html'
+      - 'impressum.html'
+      - 'konto-loeschen.html'
+      - '.github/workflows/crazygames-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare native CrazyGames build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf crazygames-native
+          mkdir -p crazygames-native
+
+          # Copy only browser/runtime assets. No Android, backend, database or store build files.
+          cp index.html crazygames-native/index.html
+          cp -R js css data crazygames-native/
+          cp app-icon.svg app-icon-maskable.svg manifest.webmanifest crazygames-native/
+          cp datenschutz.html impressum.html konto-loeschen.html crazygames-native/
+          [ -f service-worker.js ] && cp service-worker.js crazygames-native/ || true
+
+          # Force the local build into CrazyGames Basic mode even when the portal URL has no query string.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crazygames-native/js/app-loader.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("const crazyGames=params.get('source')==='crazygames'||params.get('crazygames')==='1'||params.get('platform')==='crazygames';", "const crazyGames=true;")
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('crazygames-native/js/core/CrazyGamesBasicLaunchIntegration.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("const active=params.get('source')==='crazygames'||params.get('crazygames')==='1'||params.get('platform')==='crazygames';", "const active=true;")
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          # Native CrazyGames entry: initialize SDK Data first, restore the ORVUNO game key,
+          # then start the real game directly (no iframe / no Vercel wrapper).
+          cat > crazygames-native/js/crazygames-entry.js <<'EOF'
+          const GAME_KEY='orvuno.gameId';
+          window.orvunoCrazyGames={active:true,basicLaunch:true,nativeBuild:true};
+          document.documentElement.dataset.orvunoCrazyGames='1';
+
+          async function loadSdk(){
+            if(window.CrazyGames?.SDK)return window.CrazyGames.SDK;
+            await new Promise((resolve,reject)=>{
+              const s=document.createElement('script');
+              s.src='https://sdk.crazygames.com/crazygames-sdk-v3.js';
+              s.async=true;
+              s.onload=resolve;
+              s.onerror=reject;
+              document.head.appendChild(s);
+            });
+            return window.CrazyGames?.SDK||null;
+          }
+
+          let sdk=null;
+          try{
+            sdk=await loadSdk();
+            if(sdk){
+              await sdk.init();
+              const saved=String(sdk.data.getItem(GAME_KEY)||'').trim();
+              if(saved)localStorage.setItem(GAME_KEY,saved);
+            }
+          }catch(error){
+            console.warn('CrazyGames SDK/Data konnte noch nicht initialisiert werden',error);
+          }
+
+          window.addEventListener('world:access-granted',()=>{
+            try{
+              const gameId=String(localStorage.getItem(GAME_KEY)||'').trim();
+              if(gameId&&sdk?.data)sdk.data.setItem(GAME_KEY,gameId);
+            }catch(error){console.warn('CrazyGames Fortschrittsschlüssel konnte nicht gespeichert werden',error);}
+          });
+
+          await import('./app-loader.js');
+          EOF
+
+          # Remove store/web-only startup scripts from the HTML and use the native CrazyGames entry.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('crazygames-native/index.html')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r'\s*<a class="android-download-fab"[^>]*>.*?</a>\s*','\n',s,flags=re.S)
+          s=re.sub(r'\s*<script type="module" src="js/core/AppPlatformBridge\.js"></script>\s*','\n',s)
+          s=re.sub(r'\s*<script type="module" src="js/core/SingleBottlingSlotIntegration\.js"></script>\s*','\n',s)
+          s=re.sub(r'\s*<script type="module" src="js/core/BusinessSwitchPaymentGuardIntegration\.js"></script>\s*','\n',s)
+          s=re.sub(r'\s*<script type="module" src="js/core/StorePaymentProviderBootstrap\.js"></script>\s*','\n',s)
+          s=re.sub(r'\s*<script type="module" src="js/core/GooglePlayPriceUiIntegration\.js"></script>\s*','\n',s)
+          s=re.sub(r'\s*<script type="module" src="js/app-loader\.js"></script>\s*','\n  <script type="module" src="js/crazygames-entry.js"></script>\n',s)
+          # Hide public marketing shell immediately so the player sees only the game/access layer.
+          s=s.replace('</head>', '<style>#orvuno-public-context{display:none!important}.android-download-fab{display:none!important}</style></head>')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          # Basic validation: all local module src/href targets referenced by index must exist.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,sys
+          root=Path('crazygames-native')
+          html=(root/'index.html').read_text(encoding='utf-8')
+          missing=[]
+          for ref in re.findall(r'(?:src|href)="([^"#?]+)',html):
+            if ref.startswith(('http://','https://','mailto:','data:','/')): continue
+            if not (root/ref).exists(): missing.append(ref)
+          if missing:
+            print('Missing index targets:',missing)
+            sys.exit(1)
+          print('CrazyGames build files:',sum(1 for p in root.rglob('*') if p.is_file()))
+          print('CrazyGames build bytes:',sum(p.stat().st_size for p in root.rglob('*') if p.is_file()))
+          PY
+
+      - name: Upload CrazyGames package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ORVUNO-CrazyGames-HTML5
+          path: crazygames-native
+          if-no-files-found: error
+          compression-level: 9
