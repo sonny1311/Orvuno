@@ -40,6 +40,10 @@ jobs:
           cp datenschutz.html impressum.html konto-loeschen.html crazygames-native/
           [ -f service-worker.js ] && cp service-worker.js crazygames-native/ || true
 
+          # config.local.js is an optional local developer override. Include an empty file in the
+          # portal build so browsers do not perform a pointless 404 request during startup.
+          printf "window.ORVUNO_CONFIG = window.ORVUNO_CONFIG || {};\n" > crazygames-native/js/config.local.js
+
           # Force the local build into CrazyGames Basic mode even when the portal URL has no query string.
           python3 - <<'PY'
           from pathlib import Path
@@ -103,33 +107,58 @@ jobs:
           p=Path('crazygames-native/index.html')
           s=p.read_text(encoding='utf-8')
           s=re.sub(r'\s*<a class="android-download-fab"[^>]*>.*?</a>\s*','\n',s,flags=re.S)
-          s=re.sub(r'\s*<script type="module" src="js/core/AppPlatformBridge\.js"></script>\s*','\n',s)
-          s=re.sub(r'\s*<script type="module" src="js/core/SingleBottlingSlotIntegration\.js"></script>\s*','\n',s)
-          s=re.sub(r'\s*<script type="module" src="js/core/BusinessSwitchPaymentGuardIntegration\.js"></script>\s*','\n',s)
-          s=re.sub(r'\s*<script type="module" src="js/core/StorePaymentProviderBootstrap\.js"></script>\s*','\n',s)
-          s=re.sub(r'\s*<script type="module" src="js/core/GooglePlayPriceUiIntegration\.js"></script>\s*','\n',s)
+          for name in (
+            'AppPlatformBridge','SingleBottlingSlotIntegration','BusinessSwitchPaymentGuardIntegration',
+            'StorePaymentProviderBootstrap','GooglePlayPriceUiIntegration'
+          ):
+            s=re.sub(rf'\s*<script type="module" src="js/core/{name}\.js"></script>\s*','\n',s)
           s=re.sub(r'\s*<script type="module" src="js/app-loader\.js"></script>\s*','\n  <script type="module" src="js/crazygames-entry.js"></script>\n',s)
           # Hide public marketing shell immediately so the player sees only the game/access layer.
           s=s.replace('</head>', '<style>#orvuno-public-context{display:none!important}.android-download-fab{display:none!important}</style></head>')
           p.write_text(s,encoding='utf-8')
           PY
 
-          # Basic validation: all local module src/href targets referenced by index must exist.
+          # Validate index references and every reachable relative module import from the native entry.
           python3 - <<'PY'
           from pathlib import Path
           import re,sys
-          root=Path('crazygames-native')
+          root=Path('crazygames-native').resolve()
           html=(root/'index.html').read_text(encoding='utf-8')
           missing=[]
           for ref in re.findall(r'(?:src|href)="([^"#?]+)',html):
             if ref.startswith(('http://','https://','mailto:','data:','/')): continue
-            if not (root/ref).exists(): missing.append(ref)
+            if not (root/ref).exists(): missing.append(('index.html',ref))
+
+          import_re=re.compile(r'''(?:import\s+(?:[^'\"]*?\s+from\s+)?|import\s*\()\s*['\"]([^'\"]+)['\"]''')
+          stack=[root/'js/crazygames-entry.js']
+          seen=set()
+          while stack:
+            p=stack.pop().resolve()
+            if p in seen: continue
+            if not p.exists():
+              missing.append(('entry',str(p)))
+              continue
+            seen.add(p)
+            text=p.read_text(encoding='utf-8',errors='ignore')
+            for ref in import_re.findall(text):
+              if not ref.startswith('.'): continue
+              target=(p.parent/ref).resolve()
+              if not target.exists():
+                missing.append((str(p.relative_to(root)),ref))
+              elif target.suffix=='.js':
+                stack.append(target)
+
           if missing:
-            print('Missing index targets:',missing)
+            print('Missing runtime targets:')
+            for row in missing: print(row)
             sys.exit(1)
+          print('Reachable JavaScript modules:',len(seen))
           print('CrazyGames build files:',sum(1 for p in root.rglob('*') if p.is_file()))
           print('CrazyGames build bytes:',sum(p.stat().st_size for p in root.rglob('*') if p.is_file()))
           PY
+
+          # Syntax-check all shipped JavaScript.
+          find crazygames-native/js -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Upload CrazyGames package
         uses: actions/upload-artifact@v4
