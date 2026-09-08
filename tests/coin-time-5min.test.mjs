@@ -45,6 +45,11 @@ assert.match(home,/reduceOperationTimeWithCoins/,'Startseite verwendet nicht den
 assert.doesNotMatch(home,/reduceTransportTimeWithCoins/,'Startseite verwendet noch die alte lokale Transportabbuchung');
 assert.match(ui,/60 Min\. = 12 Coins/,'Spieloberflächen erklären das 60-Minuten-Beispiel nicht');
 assert.match(ui,/Sofort fertig/,'Sichtbarer Coin-Zeit-Button fehlt');
+assert.match(ui,/annotateQuotedDeliveryTimes/,'Lieferzeit wird vor dem Kauf nicht in Coins ausgewiesen');
+assert.match(ui,/Sofort nach Bestellung/,'Lieferangebot zeigt den Coin-Preis nicht an');
+assert.match(ui,/attachPlannedProductionPrice/,'Produktionsdauer wird vor dem Start nicht in Coins ausgewiesen');
+assert.match(ui,/Sofort nach Start/,'Produktionsplanung zeigt den Coin-Preis nicht an');
+assert.match(ui,/hasNativeSecure/,'Maschinenbereich kann den sicheren nativen Button nicht gegen Doppelanzeige erkennen');
 assert.match(ui,/Maschinenmontage|Montage|equipment/,'Maschinenzeiten werden nicht integriert');
 assert.match(ui,/maintenance/,'Wartungszeiten werden nicht integriert');
 assert.match(ui,/crew_arrival/,'Bautrupp-Anfahrt wird nicht integriert');
