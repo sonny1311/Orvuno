@@ -4,14 +4,16 @@ import {runTimeValueUtilsTest} from '../js/core/TimeValueUtils.js';
 import {runActiveOperationsOverviewTest} from '../js/core/ActiveOperationsOverview.js';
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
-const [operation,migration,home,transport,construction,policy,ui]=await Promise.all([
+const [operation,migration,home,transport,construction,policy,ui,upgrades,maintenanceUI]=await Promise.all([
  read('js/core/OperationCoinTimeReductionSystem.js'),
  read('database/032_coin_time_reduction_five_minute_rate.sql'),
  read('js/core/HomeDeliveryCoinShortcutIntegration.js'),
  read('js/core/TransportCoinTimeReductionSystem.js'),
  read('js/core/ConstructionPremiumCoinSystem.js'),
  read('js/core/ConstructionCoinAccelerationPolicy.js'),
- read('js/core/CoinTimeAccelerationUIIntegration.js')
+ read('js/core/CoinTimeAccelerationUIIntegration.js'),
+ read('js/core/TimedBusinessUpgradeUI.js'),
+ read('js/core/MachineMaintenanceUIIntegration.js')
 ]);
 
 const coinCost=ms=>ms>0?Math.ceil(ms/300000):0;
@@ -56,6 +58,13 @@ assert.match(construction,/reduceOperationTimeWithCoins/,'Bau-/Ausbaudialog verw
 assert.match(policy,/minutesPerCoin:5/,'Montage-/Baupolicy ist nicht auf 5 Minuten gestellt');
 assert.match(policy,/coinsPerHour:12/,'60 Minuten werden in der Policy nicht als 12 Coins abgebildet');
 assert.doesNotMatch(policy,/minimumRealTimeRatio:0\.25/,'Alte 25-Prozent-Zwangswartezeit ist noch aktiv');
+
+assert.match(upgrades,/1 Coin je angefangene 5 Minuten/,'Betriebsausbau erklärt die 5-Minuten-Regel nicht');
+assert.match(upgrades,/60 Minuten kosten 12 Coins/,'Betriebsausbau erklärt das 60-Minuten-Beispiel nicht');
+assert.doesNotMatch(upgrades,/Keine Sofort-Upgrades/,'Betriebsausbau enthält noch widersprüchlichen Alttext');
+assert.match(upgrades,/Vollständige Zeitverkürzung direkt nach Start/,'Betriebsausbau zeigt den Coin-Preis vor dem Start nicht');
+assert.match(maintenanceUI,/1 Coin je angefangene 5 Min/,'Wartungsoberfläche erklärt die 5-Minuten-Regel nicht');
+assert.match(maintenanceUI,/persistIndustryEquipment/,'Wartungstimer in building_state werden nicht vor sicherer Coin-Verkürzung persistiert');
 
 assert.equal(runTimeValueUtilsTest(),true,'Timerfelder-Regressionsprüfung fehlgeschlagen');
 assert.equal(runActiveOperationsOverviewTest(),true,'Vorgangsübersicht erkennt nicht alle Zeitvorgänge');
