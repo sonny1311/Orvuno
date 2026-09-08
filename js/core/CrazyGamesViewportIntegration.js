@@ -60,20 +60,44 @@ html[data-orvuno-crazy-games="1"] #world-home-dashboard{
   box-sizing:border-box!important;
   overflow-y:auto!important;
   overflow-x:hidden!important;
-  align-content:start!important;
+  display:block!important;
 }
 html[data-orvuno-crazy-games="1"] #world-home-dashboard > *{
+  position:relative!important;
+  float:none!important;
+  clear:both!important;
+  display:block!important;
+  width:100%!important;
   min-width:0!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+  margin:0 0 12px 0!important;
+  grid-column:1/-1!important;
+  grid-row:auto!important;
+  align-self:stretch!important;
+}
+html[data-orvuno-crazy-games="1"] #world-home-dashboard > * > *{
   max-width:100%!important;
   box-sizing:border-box!important;
 }
 html[data-orvuno-crazy-games="1"] #world-home-dashboard [data-orvuno-customer-grid]{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
   width:100%!important;
   min-width:0!important;
+  max-width:none!important;
+}
+html[data-orvuno-crazy-games="1"] #world-home-dashboard [data-orvuno-customer-grid] > *{
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
 }
 html[data-orvuno-crazy-games="1"] #world-home-dashboard button,
 html[data-orvuno-crazy-games="1"] #world-home-dashboard input,
-html[data-orvuno-crazy-games="1"] #world-home-dashboard select{
+html[data-orvuno-crazy-games="1"] #world-home-dashboard select,
+html[data-orvuno-crazy-games="1"] #world-home-dashboard textarea{
   max-width:100%!important;
   box-sizing:border-box!important;
 }
@@ -96,6 +120,9 @@ html[data-orvuno-crazy-games="1"] .orvuno-tutorial-overlay{
     left:186px!important;
     right:8px!important;
   }
+  html[data-orvuno-crazy-games="1"] #world-home-dashboard [data-orvuno-customer-grid]{
+    grid-template-columns:1fr!important;
+  }
 }
 @media(max-width:720px){
   html[data-orvuno-crazy-games="1"] #orvuno-side-nav{display:none!important}
@@ -104,7 +131,6 @@ html[data-orvuno-crazy-games="1"] .orvuno-tutorial-overlay{
     right:8px!important;
     top:92px!important;
     bottom:62px!important;
-    grid-template-columns:1fr!important;
   }
   html[data-orvuno-crazy-games="1"] #world-main-nav{
     display:flex!important;
@@ -128,8 +154,10 @@ function normalize(){
   installStyle();
   const root=document.getElementById('world-home-dashboard');
   if(root){
-    root.style.removeProperty('max-width');
-    root.style.removeProperty('width');
+    for(const prop of ['max-width','width','display','grid-template-columns','grid-template-rows'])root.style.removeProperty(prop);
+    for(const child of root.children){
+      for(const prop of ['width','min-width','max-width','flex','flex-basis','grid-column','grid-row','position','left','right'])child.style.removeProperty(prop);
+    }
   }
   return true;
 }
