@@ -1,6 +1,6 @@
 // ============================================
 // bootstrap.js
-// ORVUNO
+// ORVUNO - production runtime
 // ============================================
 import "./core/GermanTechnicalErrorIntegration.js";
 import "./core/PlayerFacingBrandNeutralizerIntegration.js";
@@ -47,7 +47,6 @@ import "./core/ExpansionVisualPolishIntegration.js";
 import "./core/WarehouseExpansionUIIntegration.js";
 import "./core/WarehouseExpansionUsabilityFixIntegration.js";
 import "./core/ConstructionRuntimeCompletionIntegration.js";
-import "./core/ExpansionRuntimeRegression.js";
 import "./core/EconomyDashboardSetupIntegration.js";
 import "./core/ConnectedEconomyGameplay.js";
 import "./core/CustomerOrderCapacityByFleetIntegration.js";
@@ -117,35 +116,28 @@ import "./core/RewardedAdUIIntegration.js";
 import "./core/GameResumeRefreshIntegration.js";
 import "./core/PremiumDailyCoinRuntimeIntegration.js";
 import "./core/GameRuntimeErrorBoundary.js";
-import "./core/GameFinishPolishRegression.js";
 import "./core/PremiumPlanUIIntegration.js";
 import "./core/PremiumExtraPackageUIIntegration.js";
 import "./core/InGameAdminAccessIntegration.js";
-import "./core/DeveloperSecondBusinessTestUnlock.js";
-import "./core/BusinessPortfolioIsolationRegression.js";
-import "./core/ConnectedIndustryEconomyRegression.js";
 import "./core/SolarInvestmentUI.js";
-import { runSolarInvestmentTest } from "./core/SolarInvestmentSystem.js";
-import { runBusinessAttentionIndicatorTest } from "./core/BusinessAttentionIndicator.js";
-import { runBusinessQuickSwitcherLogicTest } from "./core/BusinessQuickSwitcherIntegration.js";
-import { runBusinessAttentionRouterTest } from "./core/BusinessAttentionRouter.js";
-import { runBusinessPortfolioScaleRegression } from "./core/BusinessPortfolioScaleRegression.js";
-import { runDevelopmentHealthPanelTest } from "./core/DevelopmentHealthPanel.js";
-import { runMarketPriceAdvisorTest } from "./core/MarketPriceAdvisor.js";
-import { runVerticalIntegrationAdvisorTest } from "./core/VerticalIntegrationAdvisor.js";
-import { runVerticalIntegrationMarketUITest } from "./core/VerticalIntegrationMarketUIIntegration.js";
-import { runIndustryChainPresentationTest } from "./core/IndustryChainPresentation.js";
-import { runRegionalEconomyAdvisorTest } from "./core/RegionalEconomyAdvisor.js";
-import "./core/CoreRegressionSuite.js";
-import { runAllIndustryPlayabilityAudit } from "./core/AllIndustryPlayabilityAudit.js";
-import { runAllIndustryEconomyHealth } from "./core/AllIndustryEconomyBootstrap.js";
 import { gameAccessGate } from "./core/AccountMultiplayerIntegration.js";
 import { initializeHereMaps } from "./core/HereMapsIntegration.js";
 
-function safeHealth(name,fn){try{return fn();}catch(error){console.error(`❌ HEALTH ${name}`,error);return{success:false,error:error?.message||String(error)};}}
 async function startOrvuno(){
- await gameAccessGate.ensureAccess();console.log("✅ ORVUNO ACCOUNT FREIGEGEBEN – SPIEL WIRD GELADEN");
- await initializeHereMaps();
- window.worldSolarInvestmentHealth=safeHealth("Solar",runSolarInvestmentTest);window.worldBusinessAttentionHealth=safeHealth("Betriebsaufmerksamkeit",runBusinessAttentionIndicatorTest);window.worldBusinessQuickSwitcherHealth=safeHealth("Betriebswechsler",runBusinessQuickSwitcherLogicTest);window.worldBusinessAttentionRouterHealth=safeHealth("Aufmerksamkeitsrouter",runBusinessAttentionRouterTest);window.worldBusinessPortfolioScaleHealth=safeHealth("Mehrbetriebskalierung",runBusinessPortfolioScaleRegression);window.worldDevelopmentHealthPanelHealth=safeHealth("Health-Panel",runDevelopmentHealthPanelTest);window.worldMarketPriceAdvisorHealth=safeHealth("KI-Preisberater",runMarketPriceAdvisorTest);window.worldVerticalIntegrationHealth=safeHealth("Vertikale Integration",runVerticalIntegrationAdvisorTest);window.worldVerticalIntegrationMarketUIHealth=safeHealth("Vertikale Integration UI",runVerticalIntegrationMarketUITest);window.worldIndustryChainPresentationHealth=safeHealth("Lieferkettenanzeige",runIndustryChainPresentationTest);window.worldRegionalEconomyHealth=safeHealth("Regionalwirtschaft",runRegionalEconomyAdvisorTest);window.worldProjectIndustryHealth=safeHealth("Gewerbe-Spielbarkeit",runAllIndustryPlayabilityAudit);window.worldAllIndustryEconomyHealth=safeHealth("Gesamtwirtschaft",runAllIndustryEconomyHealth);await import("./main.js");
+  if(!window.orvunoAccessPrechecked)await gameAccessGate.ensureAccess();
+  console.log("✅ ORVUNO ACCOUNT FREIGEGEBEN – SPIEL WIRD GELADEN");
+  // Maps are useful but must not block the first playable frame.
+  initializeHereMaps().catch(error=>console.warn('Verkehrskarte lädt später',error));
+  await import("./main.js");
 }
-startOrvuno().catch(error=>{console.error("❌ ORVUNO SPIELSTART FEHLGESCHLAGEN",error);window.orvunoShowBootError?.(error?.message||String(error));});
+
+startOrvuno().catch(error=>{
+  console.error("❌ ORVUNO SPIELSTART FEHLGESCHLAGEN",error);
+  window.orvunoShowBootError?.(error?.message||String(error));
+});
+
+// Development diagnostics are opt-in only and never part of normal player startup.
+if(new URLSearchParams(location.search).get('orvuno_dev_tests')==='1'){
+  const loadDev=()=>import('./core/CoreRegressionSuite.js').catch(error=>console.error('ORVUNO dev diagnostics failed',error));
+  if('requestIdleCallback' in window)requestIdleCallback(loadDev,{timeout:5000});else setTimeout(loadDev,5000);
+}
