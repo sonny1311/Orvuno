@@ -22,7 +22,9 @@ export class ContentRegistry {
   }
 
   registerMany(type,records=[],options={}){
-    return records.map(r=>this.register(type,r.id,r,options));
+    const valid=Array.isArray(records)?records.filter(record=>record&&typeof record==="object"&&record.id):[];
+    if(valid.length!==(Array.isArray(records)?records.length:0))console.warn(`ORVUNO ContentRegistry: ungültige ${type}-Einträge wurden übersprungen`);
+    return valid.map(r=>this.register(type,r.id,r,options));
   }
 
   get(type,id){return this.ensure(type).get(id)||null;}
@@ -40,9 +42,18 @@ export class ContentRegistry {
 export const worldContentRegistry=new ContentRegistry();
 
 // Erweiterungspunkt fuer spaetere Mods, Admin-Inhalte oder neue Branchenmodule.
+// Ein einzelner defekter/sparsamer Datensatz darf niemals den kompletten Spielstart abbrechen.
 export function registerWorldContent(bundle={}){
+  if(!bundle||typeof bundle!=="object")return worldContentRegistry;
   for(const[type,records]of Object.entries(bundle)){
-    for(const record of records||[]) worldContentRegistry.register(type,record.id,record,{overwrite:true});
+    if(!Array.isArray(records))continue;
+    for(const record of records){
+      if(!record||typeof record!=="object"||!record.id){
+        console.warn(`ORVUNO ContentRegistry: ungültiger Eintrag in ${type} übersprungen`,record);
+        continue;
+      }
+      worldContentRegistry.register(type,record.id,record,{overwrite:true});
+    }
   }
   return worldContentRegistry;
 }
