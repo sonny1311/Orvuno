@@ -58,12 +58,13 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
 
-          # Native CrazyGames entry: initialize SDK Data first, restore the ORVUNO game key,
-          # then start the real game directly (no iframe / no Vercel wrapper).
+          # Native CrazyGames entry: initialize the viewport first, then SDK Data, then the real game.
           cat > crazygames-native/js/crazygames-entry.js <<'EOF'
           const GAME_KEY='orvuno.gameId';
           window.orvunoCrazyGames={active:true,basicLaunch:true,nativeBuild:true};
           document.documentElement.dataset.orvunoCrazyGames='1';
+
+          await import('./core/CrazyGamesViewportIntegration.js');
 
           async function loadSdk(){
             if(window.CrazyGames?.SDK)return window.CrazyGames.SDK;
