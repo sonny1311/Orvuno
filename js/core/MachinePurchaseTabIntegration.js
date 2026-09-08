@@ -6,8 +6,7 @@ import { EconomyDashboard } from './EconomyDashboard.js';
 import { visibleEquipmentMarketplace,buyIndustryEquipment,upgradeIndustryEquipment,persistIndustryEquipment,repairDuplicateIndustryEquipment,equipmentInstallationHours,MAX_EQUIPMENT_LEVEL } from './IndustryEquipmentMarketplace.js';
 import { recipesForCompany } from './OperationalSupplyChainSystem.js';
 import { compatibleMachineIds } from './IndustryMachineCompatibility.js';
-import { coinCostForMs,reduceOperationTimeWithCoins } from './OperationCoinTimeReductionSystem.js';
-import { timerEnd } from './TimeValueUtils.js';
+import { coinCostForMs } from './OperationCoinTimeReductionSystem.js';
 
 const SECTION_TITLES={
   buy:['Rohstoffe & Verpackung einkaufen'],
@@ -73,7 +72,7 @@ function renderMachineMarket(dialog,panel,company,recipes){
     window.dispatchEvent(new CustomEvent('world:game-state-dirty',{detail:{reason:'equipment-duplicate-repair',removed:repair.removed.length,refund:repair.refund}}));
   }
   const section=dialog.el('section');section.className='world-machine-purchase-section';
-  section.append(dialog.el('h3','Maschinenkauf'),dialog.el('p','Hier findest du zentral alle Maschinen und Betriebsausstattungen für deinen aktuellen Betriebslevel. Neue Maschinen müssen montiert werden; vorhandene Maschinen können bis Stufe 5 aufgerüstet werden und erhalten je Stufe mehr Produktionsleistung. Zeitverkürzung ist optional: 1 Coin je angefangene 5 Minuten Restzeit, 60 Minuten = 12 Coins. Normales Warten bleibt kostenlos.'));
+  section.append(dialog.el('h3','Maschinenkauf'),dialog.el('p','Hier findest du zentral alle Maschinen und Betriebsausstattungen für deinen aktuellen Betriebslevel. Neue Maschinen müssen montiert werden; vorhandene Maschinen können bis Stufe 5 aufgerüstet werden und erhalten je Stufe mehr Produktionsleistung. Zeitverkürzung ist optional: Du wählst selbst die Coin-Anzahl, 1 Coin je angefangene 5 Minuten Restzeit, 60 Minuten = 12 Coins. Normales Warten bleibt kostenlos.'));
   if(repair.repaired){const note=dialog.el('div',`✅ ${repair.removed.length} doppelte Maschineninstanz${repair.removed.length===1?'':'en'} bereinigt${repair.refund>0?` · ${dialog.money(repair.refund)} zurückerstattet`:''}.`);Object.assign(note.style,{padding:'9px 11px',margin:'8px 0',borderRadius:'8px',background:'#eef8ee',fontWeight:'700'});section.append(note);}
   const market=visibleEquipmentMarketplace(company).sort((a,b)=>Number(b.required&&!b.owned)-Number(a.required&&!a.owned)||Number(a.owned)-Number(b.owned)||Number(a.price||0)-Number(b.price||0));
   if(!market.length){section.append(dialog.el('p','Für dieses Gewerbe sind auf deinem aktuellen Betriebslevel noch keine kaufbaren Maschinen verfügbar.'));panel.append(section);return;}
@@ -88,28 +87,14 @@ function renderMachineMarket(dialog,panel,company,recipes){
     if(item.room)details.push(`Bereich: ${item.room==='production'?'Produktion':item.room==='storage'?'Lager':item.room}`);
     if(item.requiredLevel>1)details.push(`Freigeschaltet ab Betriebslevel ${item.requiredLevel}`);
     if(usage.length)details.push(`Benötigt für: ${usage.join(', ')}`);
-    if(item.working){const remainingMs=Math.max(0,Number(item.installation?.remainingMs||0));details.push(`${item.upgrading?'Aufrüstungs':'Montage'}-Restzeit: ${remainingLabel(remainingMs)}`);details.push(`🪙 Sofort fertig: ${coinLabel(remainingMs)}`);}
-    if(item.owned&&!item.working&&item.upgrade?.available){const upgradeMs=Number(item.upgrade.hours||0)*3600000;details.push(`Nächste Stufe ${item.upgrade.targetLevel}: ${performanceLabel(item.upgrade.performanceAfter)} · ${dialog.money(item.upgrade.cost)} · ${item.upgrade.hours} Std. · 🪙 sofort nach Start ${coinLabel(upgradeMs)}`);}
-    if(!item.owned){const installMs=equipmentInstallationHours(item)*3600000;details.push(`Montagezeit: ${remainingLabel(installMs)} · 🪙 sofort nach Kauf ${coinLabel(installMs)}`);}
+    if(item.working){const remainingMs=Math.max(0,Number(item.installation?.remainingMs||0));details.push(`${item.upgrading?'Aufrüstungs':'Montage'}-Restzeit: ${remainingLabel(remainingMs)}`);details.push(`🪙 Ganz fertig: ${coinLabel(remainingMs)} · Teilverkürzung frei wählbar`);}
+    if(item.owned&&!item.working&&item.upgrade?.available){const upgradeMs=Number(item.upgrade.hours||0)*3600000;details.push(`Nächste Stufe ${item.upgrade.targetLevel}: ${performanceLabel(item.upgrade.performanceAfter)} · ${dialog.money(item.upgrade.cost)} · ${item.upgrade.hours} Std. · 🪙 ganz fertig nach Start ${coinLabel(upgradeMs)} · Teilverkürzung frei wählbar`);}
+    if(!item.owned){const installMs=equipmentInstallationHours(item)*3600000;details.push(`Montagezeit: ${remainingLabel(installMs)} · 🪙 ganz fertig nach Kauf ${coinLabel(installMs)} · Teilverkürzung frei wählbar`);}
     if(item.owned&&!item.working&&!item.upgrade?.available)details.push(`Maximalstufe ${MAX_EQUIPMENT_LEVEL} erreicht`);
     if(details.length){const info=dialog.el('div',details.join(' · '));Object.assign(info.style,{margin:'6px 0',fontSize:'13px',lineHeight:'1.45'});row.append(info);}
     const price=dialog.el('strong',item.working?`${item.upgrading?'Aufrüstung':'Montage'} läuft · noch nicht einsatzbereit`:item.owned?'Bereits gekauft':dialog.money(item.price));Object.assign(price.style,{marginRight:'8px'});row.append(price);
-    if(item.working&&item.ownedInstance){
-      const raw=item.ownedInstance,end=timerEnd(raw)?.value||0,remainingMs=Math.max(0,end-Date.now()),cost=coinCostForMs(remainingMs);
-      const accelerate=dialog.btn(`⚡ Sofort fertig · ${cost} Coin${cost===1?'':'s'}`,async()=>{
-        const liveEnd=timerEnd(raw)?.value||0,liveRemaining=Math.max(0,liveEnd-Date.now()),liveCost=coinCostForMs(liveRemaining);if(liveRemaining<=0){dialog.ensureMachines(company);dialog.render(panel);return;}
-        if(Number(company.coins||0)<liveCost){alert(`Nicht genug Coins. Benötigt aktuell: ${liveCost}, vorhanden: ${Number(company.coins||0)}.`);return;}
-        if(!confirm(`${item.upgrading?'Aufrüstung':'Montage'} jetzt vollständig abschließen?\n\n1 Coin je angefangene 5 Minuten Restzeit.\nAktuelle Kosten: höchstens ${liveCost} Coin${liveCost===1?'':'s'}.\nNormales Warten bleibt kostenlos.`))return;
-        accelerate.disabled=true;
-        try{
-          await reduceOperationTimeWithCoins(company,{kind:'equipment',id:raw.instanceId||raw.id,raw,remainingMs:liveRemaining},'all');
-          const persisted=await persistIndustryEquipment(company);
-          if(persisted?.persisted===false&&company.serverCompanyId)throw new Error(persisted.reason||'Beschleunigung konnte nicht gespeichert werden');
-          dialog.ensureMachines(company);dialog.__worldFocusedSection='machines';dialog.render(panel);
-        }catch(error){accelerate.disabled=false;alert(`Beschleunigung nicht durchgeführt: ${error.message}`);}
-      });
-      accelerate.disabled=remainingMs<=0||Number(company.coins||0)<cost;accelerate.title=`1 Coin je angefangene 5 Minuten Restzeit · aktuell ${cost} Coin${cost===1?'':'s'} · normales Warten kostenlos.`;row.append(accelerate);
-    }
+    // Laufende Montage/Aufrüstung wird zentral durch CoinTimeAccelerationUIIntegration dekoriert.
+    // Dadurch gilt hier dieselbe frei wählbare Coin-Menge wie bei Produktion, Lieferungen und allen anderen Timern.
     if(item.owned&&!item.working&&item.upgrade?.available){
       const upgrade=dialog.btn(`⬆️ Auf Stufe ${item.upgrade.targetLevel} aufrüsten · ${dialog.money(item.upgrade.cost)}`,async()=>{
         const snapshot=purchaseSnapshot(company);upgrade.disabled=true;
