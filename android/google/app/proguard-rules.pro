@@ -1,0 +1,2 @@
+-keep class com.android.billingclient.** { *; }
+-dontwarn com.android.billingclient.**
