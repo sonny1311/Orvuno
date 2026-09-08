@@ -2,16 +2,51 @@
 import { microStarterProfile, starterOrderScale, ensureMicroBusiness } from './MicroBusinessStarterSystem.js';
 import { getIndustryProfile } from './IndustryCatalog.js';
 import { chooseCustomerOrderProduct } from './CustomerOrderVarietyIntegration.js';
+import { worldContentRegistry } from './ContentRegistry.js';
 
 const num = (v, d = 0) => Number.isFinite(Number(v)) ? Number(v) : d;
 const now = () => window.worldTime?.now?.() || Date.now();
 
+function branchKeyFor(company) {
+  const profile = getIndustryProfile(company) || {};
+  return String(company?.branchKey || profile.branchKey || '').trim();
+}
+
+function allowedProducts(company) {
+  const profile = getIndustryProfile(company) || {};
+  const branchKey = branchKeyFor(company);
+  const ids = new Set((profile.products || []).filter(Boolean));
+
+  if (branchKey) {
+    for (const product of worldContentRegistry.list('products', {
+      filter: p => p?.sellable !== false && Array.isArray(p?.industries) && p.industries.includes(branchKey)
+    })) {
+      if (product?.id) ids.add(product.id);
+    }
+  }
+
+  // Alte Brauerei-Fallbacks dürfen niemals in fremde Gewerbe durchsickern.
+  if (branchKey !== 'brewery') {
+    ids.delete('lager033_bottle');
+    ids.delete('pils033_bottle');
+    ids.delete('weizen033_bottle');
+  }
+  return ids;
+}
+
+function productLabel(productId) {
+  return worldContentRegistry.get('products', productId)?.label || productId;
+}
+
 function productCandidates(company) {
+  const allowed = allowedProducts(company);
+  if (!allowed.size) return [];
   const ids = [];
   const push = id => {
-    if (id && id !== 'undefined' && !ids.includes(id)) ids.push(id);
+    if (id && id !== 'undefined' && allowed.has(id) && !ids.includes(id)) ids.push(id);
   };
 
+  // Zuerst tatsächlich vorhandene/benutzte Ware, aber ausschließlich aus dem eigenen Gewerbe.
   for (const o of [...(company.completedCustomerOrders || []), ...(company.customerOrders || [])].reverse()) {
     push(o?.productId || o?.product);
   }
@@ -22,12 +57,16 @@ function productCandidates(company) {
     if (num(value) > 0) push(id);
   }
   for (const id of Object.keys(company.salesPrices || {})) push(id);
-  for (const id of (getIndustryProfile(company).products || [])) push(id);
+  for (const id of allowed) push(id);
   return ids;
 }
 
 function chooseProduct(company, index = 0) {
-  return chooseCustomerOrderProduct(company, index)?.productId || productCandidates(company)[0] || null;
+  const allowed = allowedProducts(company);
+  const preferred = chooseCustomerOrderProduct(company, index)?.productId;
+  if (preferred && allowed.has(preferred)) return preferred;
+  const candidates = productCandidates(company);
+  return candidates.length ? candidates[Math.abs(Number(index) || 0) % candidates.length] : null;
 }
 
 function priceFor(company, productId) {
@@ -45,6 +84,7 @@ function createLegacyOrder(company, opts) {
     customerName: opts.customer?.name || 'Lokaler Kunde',
     productId: opts.productId,
     product: opts.productId,
+    productLabel: productLabel(opts.productId),
     amount: opts.amount,
     quantity: opts.amount,
     unitPrice: opts.unitPrice,
@@ -58,13 +98,32 @@ function createLegacyOrder(company, opts) {
   return order;
 }
 
+function cancelForeignOpenOrders(company) {
+  const allowed = allowedProducts(company);
+  if (!allowed.size) return 0;
+  let cancelled = 0;
+  for (const order of company.customerOrders || []) {
+    if (!order || order.status !== 'open') continue;
+    const productId = order.productId || order.product;
+    if (!productId || allowed.has(productId)) continue;
+    // Nur automatisch erzeugte/alte lokale Aufträge bereinigen. Echte historische Aufträge bleiben erhalten.
+    if (order.source && order.source !== 'micro_local' && !order.microStarter) continue;
+    order.status = 'cancelled';
+    order.cancelReason = 'branch_mismatch';
+    order.cancelledAt = now();
+    cancelled++;
+  }
+  return cancelled;
+}
+
 export function ensureMicroLocalOrders(game, company, { targetOpen = 4 } = {}) {
   if (!company) return [];
 
   ensureMicroBusiness(company, now());
   const profile = microStarterProfile(company);
-  const open = (company.customerOrders = Array.isArray(company.customerOrders) ? company.customerOrders : [])
-    .filter(o => o?.status === 'open');
+  company.customerOrders = Array.isArray(company.customerOrders) ? company.customerOrders : [];
+  cancelForeignOpenOrders(company);
+  const open = company.customerOrders.filter(o => o?.status === 'open');
 
   let guard = 0;
   while (open.length < targetOpen && guard < Math.max(8, targetOpen * 3)) {
@@ -90,6 +149,7 @@ export function ensureMicroLocalOrders(game, company, { targetOpen = 4 } = {}) {
     const options = {
       customer,
       productId,
+      productLabel: productLabel(productId),
       amount,
       unitPrice,
       dueHours: Math.max(2, Math.round(baseDueHours * (.8 + Math.random() * .4)))
@@ -106,6 +166,7 @@ export function ensureMicroLocalOrders(game, company, { targetOpen = 4 } = {}) {
     if (order) {
       order.source = order.source || 'micro_local';
       order.microStarter = true;
+      order.productLabel = order.productLabel || productLabel(productId);
       open.push(order);
     }
     guard++;
@@ -116,6 +177,7 @@ export function ensureMicroLocalOrders(game, company, { targetOpen = 4 } = {}) {
 export function runMicroLocalOrderTest() {
   const company = {
     type: 'Brauerei',
+    branchKey: 'brewery',
     customerOrders: [],
     completedCustomerOrders: [],
     salesPrices: {
@@ -127,16 +189,28 @@ export function runMicroLocalOrderTest() {
 
   const orders = ensureMicroLocalOrders(null, company, { targetOpen: 2 });
   const products = orders.map(order => order.productId || order.product).filter(Boolean);
-  const success = orders.length === 2 && new Set(products).size === 2 && orders.every(order =>
+
+  const foreignCompany = {
+    type: 'Mühle',
+    branchKey: 'mill',
+    customerOrders: [{id:'bad-old-order',status:'open',source:'micro_local',productId:'lager033_bottle',product:'lager033_bottle'}],
+    completedCustomerOrders: [],
+    salesPrices: { lager033_bottle: 0.95 }
+  };
+  const foreignOrders = ensureMicroLocalOrders(null, foreignCompany, { targetOpen: 2 });
+  const branchSafe = foreignOrders.every(order => !['lager033_bottle','pils033_bottle','weizen033_bottle'].includes(order.productId || order.product))
+    && foreignCompany.customerOrders.find(o => o.id === 'bad-old-order')?.status === 'cancelled';
+
+  const success = orders.length === 2 && new Set(products).size >= 1 && orders.every(order =>
     Number.isFinite(Number(order.amount)) && Number(order.amount) > 0 &&
     Number.isFinite(Number(order.dueAt)) && Number(order.dueAt) > Number(order.createdAt)
-  );
+  ) && branchSafe;
 
   console[success ? 'log' : 'error'](
     success ? '✅ MIKRO-KUNDENAUFTRAGS-TEST ERFOLGREICH' : '❌ MIKRO-KUNDENAUFTRAGS-TEST FEHLGESCHLAGEN',
-    { orders, products }
+    { orders, products, foreignOrders, branchSafe }
   );
-  return { success, orders, products };
+  return { success, orders, products, foreignOrders, branchSafe };
 }
 
 export function installMicroLocalOrders({ targetOpen = 4 } = {}) {
@@ -157,6 +231,7 @@ export function installMicroLocalOrders({ targetOpen = 4 } = {}) {
     'worldproject:company-founded',
     'worldproject:company-loaded',
     'worldproject:company-switched',
+    'worldproject:company-activated',
     'world:customer-order-completed'
   ]) {
     window.addEventListener(event, () => setTimeout(run, 40));
