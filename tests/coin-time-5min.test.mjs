@@ -4,7 +4,7 @@ import {runTimeValueUtilsTest} from '../js/core/TimeValueUtils.js';
 import {runActiveOperationsOverviewTest} from '../js/core/ActiveOperationsOverview.js';
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
-const [operation,migrationBase,migrationPartial,home,transport,construction,policy,ui,upgrades,maintenanceUI,machinePurchase]=await Promise.all([
+const [operation,migrationBase,migrationPartial,home,transport,construction,policy,ui,upgrades,maintenanceUI,machinePurchase,activeOverviewOverride]=await Promise.all([
  read('js/core/OperationCoinTimeReductionSystem.js'),
  read('database/032_coin_time_reduction_five_minute_rate.sql'),
  read('database/033_partial_coin_time_budget.sql'),
@@ -15,7 +15,8 @@ const [operation,migrationBase,migrationPartial,home,transport,construction,poli
  read('js/core/CoinTimeAccelerationUIIntegration.js'),
  read('js/core/TimedBusinessUpgradeUI.js'),
  read('js/core/MachineMaintenanceUIIntegration.js'),
- read('js/core/MachinePurchaseTabIntegration.js')
+ read('js/core/MachinePurchaseTabIntegration.js'),
+ read('js/core/ActiveOperationsPartialCoinOverride.js')
 ]);
 
 const coinCost=ms=>ms>0?Math.ceil(ms/300000):0;
@@ -50,6 +51,7 @@ assert.match(migrationPartial,/constructionSite[^\n]*deliveries/,'Baumaterial-Li
 assert.match(migrationPartial,/maintenanceJob/,'Maschinenwartung fehlt im Serverpfad');
 assert.match(migrationPartial,/crewBookings/,'Bautrupp-Anfahrt fehlt im Serverpfad');
 
+assert.match(home,/ActiveOperationsPartialCoinOverride/,'Startbootstrap lädt die Teilverkürzung im aktiven Vorgangsüberblick nicht');
 assert.match(home,/homeCoinBudgetInput/,'Startseite besitzt kein Eingabefeld für die Coin-Menge');
 assert.match(home,/operationTimeReductionQuoteForCoins/,'Startseite kalkuliert Teilverkürzungen nicht');
 assert.match(home,/coinBudget:selected/,'Startseite sendet die gewählte Coin-Menge nicht an den sicheren Serverpfad');
@@ -69,6 +71,13 @@ assert.match(ui,/maintenance/,'Wartungszeiten werden nicht integriert');
 assert.match(ui,/crew_arrival/,'Bautrupp-Anfahrt wird nicht integriert');
 assert.match(ui,/construction_material_order/,'Baumaterial-Lieferzeit wird nicht integriert');
 assert.match(ui,/business_upgrade/,'Betriebsausbau wird nicht integriert');
+
+assert.match(activeOverviewOverride,/activeOverviewCoinBudget/,'Betrieb-im-Überblick besitzt kein Eingabefeld für Coins');
+assert.match(activeOverviewOverride,/operationTimeReductionQuoteForCoins/,'Betrieb-im-Überblick kalkuliert Teilverkürzungen nicht');
+assert.match(activeOverviewOverride,/coinBudget:selected/,'Betrieb-im-Überblick sendet die Coin-Menge nicht serverautoritativ');
+assert.match(activeOverviewOverride,/removeLegacyControl/,'Alte Stunden-Auswahl wird im Betrieb-im-Überblick nicht entfernt');
+assert.match(activeOverviewOverride,/Ganz fertig/,'Betrieb-im-Überblick zeigt die vollständigen Coin-Kosten nicht zusätzlich an');
+assert.doesNotMatch(activeOverviewOverride,/createElement\('select'\)/,'Neue Betrieb-im-Überblick-Steuerung verwendet noch eine Stunden-Auswahl');
 
 assert.match(transport,/transportTimeReductionQuoteForCoins/,'Transportquote unterstützt keine freie Coin-Menge');
 assert.match(transport,/coinBudget/,'Transporthelfer reicht kein Coin-Budget weiter');
