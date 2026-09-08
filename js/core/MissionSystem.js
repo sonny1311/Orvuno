@@ -1,4 +1,22 @@
 // WorldProject - Aufgaben/Missionen mit Teillieferungen und skalierter Schwierigkeit
+import { worldContentRegistry } from "./ContentRegistry.js";
+import { getIndustryProfile } from "./IndustryCatalog.js";
+
+const BRANCH_MISSION_TITLES={
+    brewery:"Brauerei-Auftrag", beverage:"Getränkeauftrag", mineral_water:"Mineralwasser-Auftrag",
+    carpentry:"Schreinerei-Auftrag", joinery:"Tischlerei-Auftrag", farm:"Landwirtschaftsauftrag",
+    livestock:"Tierhaltungsauftrag", orchard:"Obstbau-Auftrag", bakery:"Bäckerei-Auftrag",
+    butcher:"Metzgerei-Auftrag", food:"Lebensmittelauftrag", mechanical:"Maschinenbau-Auftrag",
+    metal:"Metallauftrag", plastic:"Kunststoffauftrag", retail:"Einzelhandelsauftrag",
+    wholesale:"Großhandelsauftrag", online_retail:"Onlinehandelsauftrag", forestry:"Forstauftrag",
+    sawmill:"Sägewerksauftrag", mill:"Mühlenauftrag", maltster:"Mälzerei-Auftrag", hops_farm:"Hopfenbau-Auftrag",
+    sugar_factory:"Zuckerfabrik-Auftrag", feed_mill:"Futtermühlenauftrag", dairy:"Molkerei-Auftrag",
+    slaughterhouse:"Schlachthof-Auftrag", glassworks:"Glaswerk-Auftrag", closures:"Verschluss-Auftrag",
+    paper_mill:"Papierfabrik-Auftrag", label_print:"Druckauftrag", packaging_maker:"Verpackungsauftrag",
+    steelworks:"Stahlwerksauftrag", polymer:"Kunststoffrohstoff-Auftrag", food_chemicals:"Lebensmittelchemie-Auftrag",
+    agri_chemicals:"Agrarchemie-Auftrag"
+};
+
 export class MissionSystem {
     ensureCompany(company) {
         company.missions ??= [];
@@ -6,6 +24,42 @@ export class MissionSystem {
         company.coins ??= 0;
         company.money ??= 0;
         return company;
+    }
+
+    resolveBranchKey(company) {
+        const direct=company?.branchKey||company?.branch_key;
+        if(direct) return direct;
+        return getIndustryProfile(company)?.branchKey||null;
+    }
+
+    getBranchMissionCandidates(company) {
+        const branchKey=this.resolveBranchKey(company);
+        if(!branchKey) return [];
+        const products=new Map(worldContentRegistry.list("products").map(p=>[p.id,p]));
+        const recipes=worldContentRegistry.list("recipes",{filter:r=>(r.industries||[]).includes(branchKey)&&!r.deprecated&&r.product});
+        const recipeCandidates=recipes
+            .map(r=>({recipe:r,product:products.get(r.product)||null}))
+            .filter(x=>x.product?.sellable!==false)
+            .map(x=>({
+                branchKey,
+                productId:x.recipe.product,
+                productName:x.product?.label||x.recipe.label||x.recipe.product,
+                title:x.recipe.label||BRANCH_MISSION_TITLES[branchKey]||"Betriebsauftrag"
+            }));
+        if(recipeCandidates.length) return recipeCandidates;
+        return worldContentRegistry.list("products",{filter:p=>(p.industries||[]).includes(branchKey)&&p.sellable!==false}).map(p=>({
+            branchKey,
+            productId:p.id,
+            productName:p.label||p.id,
+            title:BRANCH_MISSION_TITLES[branchKey]||"Betriebsauftrag"
+        }));
+    }
+
+    chooseBranchMission(company) {
+        const candidates=this.getBranchMissionCandidates(company);
+        if(!candidates.length) return null;
+        const completed=this.ensureCompany(company).completedMissions.length;
+        return candidates[completed % candidates.length];
     }
 
     estimateCompanyScale(company) {
@@ -26,13 +80,18 @@ export class MissionSystem {
             : scale === "medium"
                 ? { targetAmount:15000, money:700, coins:1, boosterMinutes:45 }
                 : { targetAmount:75000, money:1800, coins:2, boosterMinutes:60 };
+        const branchMission=this.chooseBranchMission(company);
+        const productId=options.productId??branchMission?.productId;
+        const productName=options.productName??branchMission?.productName;
+        if(!productId||!productName) throw new Error(`Keine branchenspezifische Mission für ${this.resolveBranchKey(company)||"unbekannten Betriebszweig"} verfügbar`);
 
         const mission = {
             id: Date.now() + Math.random(),
             type: "delivery",
-            title: options.title ?? "Lieferauftrag",
-            productId: options.productId ?? "lager033_bottle",
-            productName: options.productName ?? "Lagerbier 0,33 l",
+            branchKey:this.resolveBranchKey(company),
+            title: options.title ?? branchMission?.title ?? "Betriebsauftrag",
+            productId,
+            productName,
             targetAmount: Math.max(Number(options.targetAmount ?? defaults.targetAmount) || 0, 1),
             deliveredAmount: 0,
             status: "active",
@@ -79,7 +138,9 @@ export class MissionSystem {
         if (current) return current;
         const completed = this.ensureCompany(company).completedMissions.length;
         const factor = 1 + Math.min(completed * 0.08, 1.5);
-        const base = this.createDeliveryMission(company);
+        const branchMission=this.chooseBranchMission(company);
+        if(!branchMission) throw new Error(`Keine branchenspezifische Mission für ${this.resolveBranchKey(company)||"unbekannten Betriebszweig"} verfügbar`);
+        const base = this.createDeliveryMission(company,branchMission);
         base.targetAmount = Math.round(base.targetAmount * factor);
         base.reward.money = Math.round(base.reward.money * (1 + Math.min(completed * 0.04, 0.75)));
         return base;
@@ -87,12 +148,12 @@ export class MissionSystem {
 }
 
 export function runMissionSystemTest() {
-    const company = { money:50000, coins:0, vehicles:[{}], production:{capacity:1000} };
+    const company = { type:"Einzelhandel", branchKey:"retail", money:50000, coins:0, vehicles:[{}], production:{capacity:1000} };
     const system = new MissionSystem();
-    const mission = system.createDeliveryMission(company,{targetAmount:15000,moneyReward:300,coinReward:1,boosterMinutes:60});
+    const mission = system.createDeliveryMission(company,{productId:"retail_sale",productName:"Einzelhandelsverkauf",targetAmount:15000,moneyReward:300,coinReward:1,boosterMinutes:60});
     const first = system.deliver(company,mission.id,500);
     const second = system.deliver(company,mission.id,14500);
-    const success = first.success && mission.deliveredAmount === 15000 && second.completed && company.coins === 1 && company.money === 50300;
+    const success = first.success && mission.deliveredAmount === 15000 && second.completed && company.coins === 1 && company.money === 50300 && mission.productId!=="lager033_bottle";
     console[success ? "log" : "error"](
         success ? "✅ MISSIONS-TEST ERFOLGREICH" : "❌ MISSIONS-TEST FEHLGESCHLAGEN",
         { mission, company }
