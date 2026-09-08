@@ -1,8 +1,9 @@
 // ORVUNO – harte Trennung zwischen Betriebsnavigation und Echtgeld-Kauf.
-// Ein Wechsel zu einem bereits vorhandenen Betrieb darf niemals einen Checkout starten.
-import { businessPortfolio } from './AccountMultiplayerIntegration.js';
+// CrazyGames Basic lädt diesen Guard im HTML mit. Dort darf er NICHT über einen
+// statischen Import den kompletten Account-/Gameplay-Graphen in den Startpfad ziehen.
+const params=new URLSearchParams(location.search);
+const crazyGames=params.get('source')==='crazygames'||params.get('crazygames')==='1'||params.get('platform')==='crazygames';
 
-const originalActivate = businessPortfolio.activate.bind(businessPortfolio);
 const SWITCH_BLOCK_MS = 1500;
 let switchDepth = 0;
 let blockedUntil = 0;
@@ -25,7 +26,6 @@ function stopObserverLater() {
 function guardDelayedPaymentOverlay() {
   blockedUntil = Math.max(blockedUntil, Date.now() + SWITCH_BLOCK_MS);
   closeUnexpectedPaymentOverlay();
-
   if (!observer && typeof MutationObserver !== 'undefined') {
     observer = new MutationObserver(() => {
       if (paymentBlockedByBusinessSwitch()) closeUnexpectedPaymentOverlay();
@@ -35,25 +35,23 @@ function guardDelayedPaymentOverlay() {
   stopObserverLater();
 }
 
-function releaseSwitchGuard() {
-  queueMicrotask(() => {
-    switchDepth = Math.max(0, switchDepth - 1);
-  });
+function installOn(businessPortfolio){
+  if(!businessPortfolio||businessPortfolio.__orvunoPaymentSwitchGuardInstalled)return;
+  businessPortfolio.__orvunoPaymentSwitchGuardInstalled=true;
+  const originalActivate=businessPortfolio.activate.bind(businessPortfolio);
+  businessPortfolio.activate=function(...args){
+    switchDepth+=1;
+    guardDelayedPaymentOverlay();
+    try{return originalActivate(...args);}finally{queueMicrotask(()=>{switchDepth=Math.max(0,switchDepth-1);});}
+  };
 }
 
-if (!businessPortfolio.__orvunoPaymentSwitchGuardInstalled) {
-  businessPortfolio.__orvunoPaymentSwitchGuardInstalled = true;
-  businessPortfolio.activate = function (...args) {
-    switchDepth += 1;
-    guardDelayedPaymentOverlay();
-    try {
-      const result = originalActivate(...args);
-      closeUnexpectedPaymentOverlay();
-      return result;
-    } finally {
-      releaseSwitchGuard();
-    }
-  };
+// Normale Web-/Store-Version: Verhalten wie bisher. CrazyGames: erst installieren,
+// wenn der Account-Graph später tatsächlich geladen wurde.
+if(!crazyGames){
+  import('./AccountMultiplayerIntegration.js').then(m=>installOn(m.businessPortfolio)).catch(error=>console.warn('Betriebswechsel-Guard konnte nicht geladen werden',error));
+}else{
+  window.addEventListener('orvuno:full-runtime-ready',()=>installOn(window.worldAccounts?.businessPortfolio),{once:true});
 }
 
 export function paymentBlockedByBusinessSwitch() {
