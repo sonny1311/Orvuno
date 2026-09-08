@@ -15,7 +15,7 @@ const DEFAULT_SKU_MAP:Readonly<Record<string,string>>=Object.freeze({
   coins_13000:"orvuno_coins_13000",
   coins_26000:"orvuno_coins_26000",
   coins_50000:"orvuno_coins_50000",
-  premium_1m:"orvuno_premium_1m",
+  premium_4w:"orvuno_premium_1m",
   premium_3m:"orvuno_premium_3m",
   premium_6m:"orvuno_premium_6m",
   premium_12m:"orvuno_premium_12m"
@@ -47,7 +47,7 @@ async function googleAccessToken(){
   const key=await crypto.subtle.importKey("pkcs8",pemBytes(account.private_key),{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
   const signature=new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,new TextEncoder().encode(unsigned)));
   const assertion=`${unsigned}.${base64Url(signature)}`;
-  const form=new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion});
+  const form=new URLSearchParams({grant_type:"urn:ietf:params:oauth2:grant-type:jwt-bearer",assertion});
   const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:form});
   const body=await r.json().catch(()=>({}));
   if(!r.ok||!body?.access_token)throw new Error(body?.error_description||body?.error||"Google OAuth token request failed");
