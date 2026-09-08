@@ -10,12 +10,16 @@ on:
       - 'js/core/GooglePlayNativeBillingIntegration.js'
       - 'js/core/StorePaymentProviderBootstrap.js'
       - 'js/core/PremiumPlanUIIntegration.js'
+      - 'supabase/functions/world-google-play/**'
+      - 'tests/google-play-native-release.test.mjs'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Run Google Play native release gates
+        run: node tests/google-play-native-release.test.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
