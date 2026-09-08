@@ -4,6 +4,7 @@
 // ============================================
 import "./core/GermanTechnicalErrorIntegration.js";
 import "./core/HelpQuestionMarkClickFixIntegration.js";
+import "./core/HelpOverlayFrontFixIntegration.js";
 import "./core/GlobalDarkThemeIntegration.js";
 import "./core/DarkMainNavigationIntegration.js";
 import "./core/DarkCommandCenterHeaderIntegration.js";
@@ -43,6 +44,7 @@ import "./core/LandConstructionExpansionUIIntegration.js";
 import "./core/BusinessPremisesOverviewIntegration.js";
 import "./core/ExpansionVisualPolishIntegration.js";
 import "./core/WarehouseExpansionUIIntegration.js";
+import "./core/WarehouseExpansionUsabilityFixIntegration.js";
 import "./core/ConstructionRuntimeCompletionIntegration.js";
 import "./core/ExpansionRuntimeRegression.js";
 import "./core/EconomyDashboardSetupIntegration.js";
