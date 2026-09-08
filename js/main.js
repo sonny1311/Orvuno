@@ -18,23 +18,25 @@ window.dispatchEvent(new CustomEvent("orvuno:boot-complete"));
 const runtimeCompany = new Company();
 const portfolio = window.worldAccounts?.businessPortfolio;
 const initialOverview = window.worldServerAccountOverview || null;
-const initialServerCompany = initialOverview?.companies?.find(c => c.is_primary)
-    || initialOverview?.companies?.find(c => Number(c.slot_no) === 1)
-    || initialOverview?.companies?.[0]
+const initialCompanies = Array.isArray(initialOverview?.companies) ? initialOverview.companies.filter(Boolean) : [];
+const initialServerCompany = initialCompanies.find(c => c?.is_primary)
+    || initialCompanies.find(c => Number(c?.slot_no) === 1)
+    || initialCompanies[0]
     || null;
 
 window.worldCanonicalRuntimeCompany = runtimeCompany;
 
 function companies() {
-    return Array.isArray(window.worldServerAccountOverview?.companies)
+    const rows = Array.isArray(window.worldServerAccountOverview?.companies)
         ? window.worldServerAccountOverview.companies
-        : (Array.isArray(initialOverview?.companies) ? initialOverview.companies : []);
+        : initialCompanies;
+    return rows.filter(Boolean);
 }
 
 function serverCompanyFor(value = null) {
     const id = value?.serverCompanyId ?? value?.id ?? window.worldActiveServerCompany?.id ?? null;
     if (id != null) {
-        const found = companies().find(c => String(c.id) === String(id));
+        const found = companies().find(c => String(c?.id) === String(id));
         if (found) return found;
     }
     return window.worldActiveServerCompany || initialServerCompany || companies()[0] || null;
@@ -75,14 +77,14 @@ Object.defineProperty(runtimeCompany, "money", {
 });
 
 function hydrateCanonical(serverCompany) {
-    if (!serverCompany) return runtimeCompany;
+    if (!serverCompany || typeof serverCompany !== "object") return runtimeCompany;
     const wallet = window.worldServerAccountOverview?.wallet || initialOverview?.wallet || {};
 
     if (portfolio?.hydrateCompany) {
         portfolio.hydrateCompany(runtimeCompany, serverCompany, wallet);
     } else {
         const state = serverCompany.game_state || {};
-        runtimeCompany.serverCompanyId = serverCompany.id;
+        runtimeCompany.serverCompanyId = serverCompany.id ?? null;
         runtimeCompany.slotNo = Number(serverCompany.slot_no || 1);
         runtimeCompany.name = serverCompany.name || "";
         runtimeCompany.industry = serverCompany.industry || "";
@@ -125,7 +127,7 @@ Object.defineProperty(window, "worldPlayerCompany", {
             console.warn("🛡️ ORVUNO: FALLBACK-COMPANY VERWORFEN", { money: Number(next?.money) });
             return;
         }
-        const server = companies().find(c => String(c.id) === String(id));
+        const server = companies().find(c => String(c?.id) === String(id));
         if (!server) {
             console.warn("🛡️ ORVUNO: UNBEKANNTE COMPANY VERWORFEN", { companyId: id, money: Number(next?.money) });
             return;
@@ -149,7 +151,7 @@ window.worldGetCanonicalCompany = () => {
     const server = serverCompanyFor(runtimeCompany);
     if (server) {
         const serverMoney = Number(server.money ?? server.game_state?.money);
-        if (String(runtimeCompany.serverCompanyId ?? "") !== String(server.id ?? "")) {
+        if (String(runtimeCompany.serverCompanyId ?? "") !== String(server?.id ?? "")) {
             hydrateCanonical(server);
         } else if (Number(runtimeCompany.money) === 0 && Number.isFinite(serverMoney) && serverMoney > 0) {
             runtimeCompany.money = serverMoney;
