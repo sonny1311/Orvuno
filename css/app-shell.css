@@ -39,9 +39,31 @@ input,select,textarea{
 }
 @media (max-width:720px){
   body{overflow-x:hidden;}
+  html.orvuno-modal-open,
+  html.orvuno-modal-open body,
+  body.orvuno-modal-open{
+    overflow:hidden !important;
+    overscroll-behavior:none !important;
+  }
+  [data-orvuno-payment-overlay],
+  [role="dialog"],
+  .orvuno-modal,
+  .modal,
+  .dialog,
+  .orvuno-help-overlay,
+  .orvuno-tutorial-overlay{
+    z-index:120000 !important;
+  }
   [role="dialog"],.orvuno-modal,.modal,.dialog{
     max-width:100vw !important;
     max-height:calc(100dvh - var(--orvuno-safe-top) - var(--orvuno-safe-bottom)) !important;
+    background:#0b1524 !important;
+    color:#f8fafc !important;
+  }
+  html.orvuno-modal-open #world-main-nav{
+    visibility:hidden !important;
+    pointer-events:none !important;
+    opacity:0 !important;
   }
   [data-orvuno-payment-overlay]{
     padding:max(10px,var(--orvuno-safe-top)) max(10px,var(--orvuno-safe-right)) max(10px,var(--orvuno-safe-bottom)) max(10px,var(--orvuno-safe-left)) !important;
