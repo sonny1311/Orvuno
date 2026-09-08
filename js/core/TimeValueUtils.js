@@ -8,8 +8,13 @@ export function timeMs(value,fallback=0){
  return fallback;
 }
 
-export const TIMER_END_KEYS=Object.freeze(['finishAt','completeAt','arrivalAt','arrivalTime','arriveAt','deliveryAt','trafficEta','eta','endsAt','expectedAt']);
-export const TIMER_START_KEYS=Object.freeze(['startedAt','createdAt','orderedAt','departureTime','departAt','started_at','created_at']);
+export const TIMER_END_KEYS=Object.freeze([
+ 'finishAt','completeAt','arrivalAt','arrivalTime','arriveAt','arrivesAt','deliveryAt','trafficEta','eta','endsAt','expectedAt',
+ 'readyAt','availableAt','installationFinishAt','upgradeFinishAt','busyUntil'
+]);
+export const TIMER_START_KEYS=Object.freeze([
+ 'startedAt','createdAt','orderedAt','departureTime','departAt','bookedAt','installationStartedAt','upgradeStartedAt','started_at','created_at'
+]);
 
 export function timerEnd(row={}){for(const key of TIMER_END_KEYS){const value=timeMs(row?.[key]);if(value>0)return{key,value};}return null;}
 export function timerStart(row={}){for(const key of TIMER_START_KEYS){const value=timeMs(row?.[key]);if(value>0)return{key,value};}return null;}
@@ -33,5 +38,8 @@ export function runTimeValueUtilsTest(){
  if(timeMs(iso)!==ms||timerEnd(row)?.value!==ms||timerStart(row)?.value!==ms-1000)throw new Error('Persistierte Zeitwerte werden nicht erkannt');
  writeTimeValue(row,'arrivalAt',ms-5000);if(Date.parse(row.arrivalAt)!==ms-5000)throw new Error('ISO-Zeitformat wird beim Schreiben nicht erhalten');
  const market={departureTime:new Date(ms-2000),arrivalTime:new Date(ms+3000)};if(timerStart(market)?.value!==ms-2000||timerEnd(market)?.value!==ms+3000)throw new Error('Marktlieferzeiten werden nicht erkannt');
+ const constructionDelivery={orderedAt:ms-5000,arrivesAt:ms+9000};if(timerEnd(constructionDelivery)?.value!==ms+9000)throw new Error('Baumaterial-Lieferzeit wird nicht erkannt');
+ const equipment={installationStartedAt:ms-1000,installationFinishAt:ms+12000};if(timerStart(equipment)?.value!==ms-1000||timerEnd(equipment)?.value!==ms+12000)throw new Error('Maschinenmontage-Zeit wird nicht erkannt');
+ const crew={bookedAt:ms-1000,availableAt:ms+7000};if(timerStart(crew)?.value!==ms-1000||timerEnd(crew)?.value!==ms+7000)throw new Error('Bautrupp-Anfahrtszeit wird nicht erkannt');
  return true;
 }
