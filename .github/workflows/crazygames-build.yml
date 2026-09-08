@@ -64,6 +64,18 @@ jobs:
           window.orvunoCrazyGames={active:true,basicLaunch:true,nativeBuild:true};
           document.documentElement.dataset.orvunoCrazyGames='1';
 
+          // A legacy placeholder action can still fire once during the CrazyGames bootstrap.
+          // Do not interrupt the player with a blocking browser alert for that harmless message.
+          const nativeAlert=window.alert.bind(window);
+          window.alert=(message)=>{
+            const text=String(message??'').trim();
+            if(text==='Dieser Bereich ist derzeit noch nicht verfügbar.'){
+              console.info('ORVUNO CrazyGames: legacy unavailable-area notice suppressed.');
+              return;
+            }
+            return nativeAlert(message);
+          };
+
           await import('./core/CrazyGamesViewportIntegration.js');
 
           async function loadSdk(){
