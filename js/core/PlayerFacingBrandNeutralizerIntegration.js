@@ -1,3 +1,5 @@
+import './CrazyGamesBasicLaunchIntegration.js';
+
 // ORVUNO - neutralisiert unnötige Fremdmarken ausschließlich in spielersichtbaren UI-Texten.
 // Technische Provider-IDs, URLs, SKUs, API-Aufrufe und Zahlungslogik bleiben unverändert.
 
