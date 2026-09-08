@@ -21,13 +21,16 @@ export function operationTimeReductionQuote(row={},hours=1,{now=Date.now()}={}){
 }
 export function fullOperationTimeReductionQuote(row={},options={}){return operationTimeReductionQuote(row,'all',options);}
 async function waitForSave(sync,limit=50){for(let i=0;i<limit&&sync?.saving;i++)await new Promise(resolve=>setTimeout(resolve,40));}
-async function flushBeforeReduction(){const sync=typeof window!=='undefined'?window.worldAccounts?.gameStateSync:null;if(!sync?.save)return;await waitForSave(sync);await sync.save().catch(error=>{throw new Error(`Spielstand konnte vor der Coin-Buchung nicht gesichert werden: ${error?.message||error}`);});await waitForSave(sync);}
+async function flushBeforeReduction(){const sync=typeof window!=='undefined'?window.worldAccounts?.gameStateSync:null;if(!sync?.save)return null;await waitForSave(sync);await sync.save().catch(error=>{throw new Error(`Spielstand konnte vor der Coin-Buchung nicht gesichert werden: ${error?.message||error}`);});await waitForSave(sync);return sync;}
 export async function reduceOperationTimeWithCoins(company={},row={},hours=1){
  const q=operationTimeReductionQuote(row,hours),companyId=Number(company.serverCompanyId);if(!Number.isFinite(companyId)||companyId<=0)throw new Error('Server-Betrieb fehlt');
  const key=`${row.kind}:${row.id}`;if(inFlight.has(key))throw new Error('Diese Zeitverkürzung wird bereits verarbeitet. Bitte kurz warten.');
- inFlight.add(key);
+ inFlight.add(key);let sync=null,saveLock=false;
  try{
-  await flushBeforeReduction();
+  sync=await flushBeforeReduction();
+  // Zwischen dem letzten vollständigen Save und der atomaren RPC-Buchung darf der normale
+  // 5-Sekunden-Autosave die alte Endzeit nicht wieder über den gerade geänderten Serverzustand schreiben.
+  if(sync&&!sync.saving){sync.saving=true;saveLock=true;}
   if(typeof window!=='undefined')window.worldCoinTimeReductionInFlight=true;
   const r=await api.rpc('shorten_company_timed_action',{p_company_id:companyId,p_action_kind:row.kind,p_action_id:String(row.id),p_hours:q.requestedHours});
   const reducedMs=n(r?.reducedMs),newBalance=n(r?.newBalance,company.coins);if(reducedMs<=0)throw new Error('Zeit konnte nicht verkürzt werden');
@@ -39,9 +42,10 @@ export async function reduceOperationTimeWithCoins(company={},row={},hours=1){
   return{...r,reducedMs,newBalance};
  }finally{
   if(typeof window!=='undefined')window.worldCoinTimeReductionInFlight=false;
+  if(saveLock&&sync)sync.saving=false;
   inFlight.delete(key);
-  const sync=typeof window!=='undefined'?window.worldAccounts?.gameStateSync:null;
-  if(sync?.save)setTimeout(()=>sync.save().catch(()=>{}),0);
+  const saver=sync|| (typeof window!=='undefined'?window.worldAccounts?.gameStateSync:null);
+  if(saver?.save)setTimeout(()=>saver.save().catch(()=>{}),0);
  }
 }
 export function runOperationCoinTimeReductionTest(){
