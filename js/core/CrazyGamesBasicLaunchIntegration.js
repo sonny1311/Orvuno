@@ -9,6 +9,10 @@ window.orvunoCrazyGames={active,basicLaunch:active};
 if(active){
   document.documentElement.dataset.orvunoCrazyGames='1';
 
+  // Vom CrazyGames-Wrapper synchronisierte Wiederherstellungskennung vor dem Access-Gate setzen.
+  const syncedGameId=String(params.get('cg_game_id')||'').trim();
+  if(syncedGameId){try{localStorage.setItem('orvuno.gameId',syncedGameId);}catch{}}
+
   // CrazyGames Basic Launch: keine Echtgeldangebote und keine externen Werbe-Buttons anzeigen.
   const hideRestrictedUi=()=>{
     for(const selector of [
@@ -49,6 +53,8 @@ if(active){
 
   window.addEventListener('world:access-granted',()=>{
     hideRestrictedUi();
-    try{window.parent?.postMessage({type:'orvuno:crazygames-ready'},'*');}catch{}
+    let gameId='';try{gameId=String(localStorage.getItem('orvuno.gameId')||'').trim();}catch{}
+    try{window.parent?.postMessage({type:'orvuno:crazygames-ready',gameId},'*');}catch{}
+    if(gameId)try{window.parent?.postMessage({type:'orvuno:crazygames-game-id',gameId},'*');}catch{}
   });
 }
