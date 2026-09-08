@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07101d">
   <title>ORVUNO</title>
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
   <style>
     html,body{width:100%;height:100%;margin:0;background:#07101d;overflow:hidden}
     #game{width:100%;height:100%;border:0;display:block;background:#07101d}
@@ -14,11 +15,32 @@
 </head>
 <body>
   <div id="loading"><div>ORVUNO wird geladen …<small>Wirtschaftssimulation</small></div></div>
-  <iframe id="game" title="ORVUNO" src="https://orvuno-worldproject.vercel.app/?source=crazygames&crazygames=1" allow="fullscreen; autoplay" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  <iframe id="game" title="ORVUNO" src="about:blank" allow="fullscreen; autoplay" referrerpolicy="strict-origin-when-cross-origin"></iframe>
   <script>
     const frame=document.getElementById('game'),loading=document.getElementById('loading');
-    frame.addEventListener('load',()=>setTimeout(()=>{loading.style.display='none';},350));
-    window.addEventListener('message',event=>{if(event?.data?.type==='orvuno:crazygames-ready')loading.style.display='none';});
+    let sdkReady=false;
+    async function boot(){
+      let gameId='';
+      try{
+        await window.CrazyGames.SDK.init();
+        sdkReady=true;
+        gameId=String(window.CrazyGames.SDK.data.getItem('orvuno.gameId')||'').trim();
+      }catch(error){console.warn('CrazyGames SDK konnte nicht initialisiert werden',error);}
+      const url=new URL('https://orvuno-worldproject.vercel.app/');
+      url.searchParams.set('source','crazygames');
+      url.searchParams.set('crazygames','1');
+      if(gameId)url.searchParams.set('cg_game_id',gameId);
+      frame.src=url.toString();
+    }
+    frame.addEventListener('load',()=>setTimeout(()=>{loading.style.display='none';},500));
+    window.addEventListener('message',event=>{
+      const data=event?.data||{};
+      if(data.type==='orvuno:crazygames-ready')loading.style.display='none';
+      if(data.type==='orvuno:crazygames-game-id'&&data.gameId&&sdkReady){
+        try{window.CrazyGames.SDK.data.setItem('orvuno.gameId',String(data.gameId));}catch(error){console.warn('Fortschrittsschlüssel konnte nicht gespeichert werden',error);}
+      }
+    });
+    boot();
   </script>
 </body>
 </html>
