@@ -1,6 +1,7 @@
 // ORVUNO – Coin-Beschleunigung direkt auf der Startseite bei "Läuft gerade".
 // Alle zeitbasierten Vorgänge verwenden dieselbe serverautoritativ verbuchte Regel.
 import './CoinTimeAccelerationUIIntegration.js';
+import './ActiveOperationsPartialCoinOverride.js';
 import { activeOperationsSummary } from './ActiveOperationsOverview.js';
 import { canReduceOperation,COIN_TIME_RULE_LABEL,fullOperationTimeReductionQuote,operationTimeReductionQuoteForCoins,reduceOperationTimeWithCoins } from './OperationCoinTimeReductionSystem.js';
 import { timerEnd } from './TimeValueUtils.js';
