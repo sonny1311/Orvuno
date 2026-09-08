@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07101d">
   <title>ORVUNO</title>
-  <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+  <link rel="preconnect" href="https://orvuno-worldproject.vercel.app" crossorigin>
+  <link rel="dns-prefetch" href="https://orvuno-worldproject.vercel.app">
+  <link rel="preconnect" href="https://sdk.crazygames.com" crossorigin>
+  <link rel="dns-prefetch" href="https://sdk.crazygames.com">
   <style>
     html,body{width:100%;height:100%;margin:0;background:#07101d;overflow:hidden}
     #game{width:100%;height:100%;border:0;display:block;background:#07101d}
-    #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#07101d;color:#fff;font:700 18px Arial,sans-serif;z-index:2}
+    #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#07101d;color:#fff;font:700 18px Arial,sans-serif;z-index:2;transition:opacity .12s ease}
     #loading small{display:block;margin-top:8px;color:#9fb0c7;font-weight:400;text-align:center}
   </style>
 </head>
@@ -18,29 +21,66 @@
   <iframe id="game" title="ORVUNO" src="about:blank" allow="fullscreen; autoplay" referrerpolicy="strict-origin-when-cross-origin"></iframe>
   <script>
     const frame=document.getElementById('game'),loading=document.getElementById('loading');
-    let sdkReady=false;
-    async function boot(){
-      let gameId='';
-      try{
-        await window.CrazyGames.SDK.init();
-        sdkReady=true;
-        gameId=String(window.CrazyGames.SDK.data.getItem('orvuno.gameId')||'').trim();
-      }catch(error){console.warn('CrazyGames SDK konnte nicht initialisiert werden',error);}
+    let sdkReady=false,frameStarted=false,frameReady=false,reloadedForProgress=false;
+    const gameUrl=gameId=>{
       const url=new URL('https://orvuno-worldproject.vercel.app/');
       url.searchParams.set('source','crazygames');
       url.searchParams.set('crazygames','1');
       if(gameId)url.searchParams.set('cg_game_id',gameId);
-      frame.src=url.toString();
-    }
-    frame.addEventListener('load',()=>setTimeout(()=>{loading.style.display='none';},500));
-    window.addEventListener('message',event=>{
-      const data=event?.data||{};
-      if(data.type==='orvuno:crazygames-ready')loading.style.display='none';
-      if(data.type==='orvuno:crazygames-game-id'&&data.gameId&&sdkReady){
-        try{window.CrazyGames.SDK.data.setItem('orvuno.gameId',String(data.gameId));}catch(error){console.warn('Fortschrittsschlüssel konnte nicht gespeichert werden',error);}
+      return url.toString();
+    };
+    const startFrame=gameId=>{
+      if(frameStarted)return;
+      frameStarted=true;
+      frame.src=gameUrl(gameId||'');
+    };
+    const hideLoading=()=>{loading.style.opacity='0';setTimeout(()=>{loading.style.display='none';},130);};
+
+    // Do not block ORVUNO on the SDK download. New/test players start after a very short
+    // grace period; existing progress is injected as soon as the Data module is ready.
+    const sdkPromise=new Promise(resolve=>{
+      const script=document.createElement('script');
+      script.src='https://sdk.crazygames.com/crazygames-sdk-v3.js';
+      script.async=true;
+      script.onload=async()=>{
+        let gameId='';
+        try{
+          await window.CrazyGames.SDK.init();
+          sdkReady=true;
+          gameId=String(window.CrazyGames.SDK.data.getItem('orvuno.gameId')||'').trim();
+        }catch(error){console.warn('CrazyGames SDK konnte nicht initialisiert werden',error);}
+        resolve(gameId);
+      };
+      script.onerror=()=>resolve('');
+      document.head.append(script);
+    });
+
+    const fastStart=setTimeout(()=>startFrame(''),350);
+    sdkPromise.then(gameId=>{
+      clearTimeout(fastStart);
+      if(!frameStarted){startFrame(gameId);return;}
+      // If an existing cross-device save arrives just after the fast start, reload once
+      // before gameplay is ready so the correct profile wins instead of creating a new one.
+      if(gameId&&!frameReady&&!reloadedForProgress){
+        reloadedForProgress=true;
+        frame.src=gameUrl(gameId);
       }
     });
-    boot();
+
+    frame.addEventListener('load',()=>hideLoading());
+    window.addEventListener('message',event=>{
+      const data=event?.data||{};
+      if(data.type==='orvuno:crazygames-ready'){
+        frameReady=true;
+        hideLoading();
+      }
+      if(data.type==='orvuno:crazygames-game-id'&&data.gameId){
+        sdkPromise.then(()=>{
+          if(!sdkReady)return;
+          try{window.CrazyGames.SDK.data.setItem('orvuno.gameId',String(data.gameId));}catch(error){console.warn('Fortschrittsschlüssel konnte nicht gespeichert werden',error);}
+        });
+      }
+    });
   </script>
 </body>
 </html>
