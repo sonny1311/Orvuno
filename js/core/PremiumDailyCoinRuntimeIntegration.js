@@ -1,4 +1,5 @@
 // WorldProject - schreibt Premium-Plus-Tagescoins beim Spielstart und bei Rueckkehr gut.
+import './PremiumUniversalTimeAccelerationIntegration.js';
 import { grantPremiumDailyCoins } from './PremiumDailyCoinSystem.js';
 const account=()=>window.worldCurrentUser||window.worldAccount||window.worldPlayerAccount||{};
 const company=()=>window.worldPlayerCompany||null;
