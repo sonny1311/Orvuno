@@ -4,7 +4,7 @@ import {runTimeValueUtilsTest} from '../js/core/TimeValueUtils.js';
 import {runActiveOperationsOverviewTest} from '../js/core/ActiveOperationsOverview.js';
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
-const [operation,migration,home,transport,construction,policy,ui,upgrades,maintenanceUI]=await Promise.all([
+const [operation,migration,home,transport,construction,policy,ui,upgrades,maintenanceUI,machinePurchase]=await Promise.all([
  read('js/core/OperationCoinTimeReductionSystem.js'),
  read('database/032_coin_time_reduction_five_minute_rate.sql'),
  read('js/core/HomeDeliveryCoinShortcutIntegration.js'),
@@ -13,7 +13,8 @@ const [operation,migration,home,transport,construction,policy,ui,upgrades,mainte
  read('js/core/ConstructionCoinAccelerationPolicy.js'),
  read('js/core/CoinTimeAccelerationUIIntegration.js'),
  read('js/core/TimedBusinessUpgradeUI.js'),
- read('js/core/MachineMaintenanceUIIntegration.js')
+ read('js/core/MachineMaintenanceUIIntegration.js'),
+ read('js/core/MachinePurchaseTabIntegration.js')
 ]);
 
 const coinCost=ms=>ms>0?Math.ceil(ms/300000):0;
@@ -65,6 +66,11 @@ assert.doesNotMatch(upgrades,/Keine Sofort-Upgrades/,'Betriebsausbau enthält no
 assert.match(upgrades,/Vollständige Zeitverkürzung direkt nach Start/,'Betriebsausbau zeigt den Coin-Preis vor dem Start nicht');
 assert.match(maintenanceUI,/1 Coin je angefangene 5 Min/,'Wartungsoberfläche erklärt die 5-Minuten-Regel nicht');
 assert.match(maintenanceUI,/persistIndustryEquipment/,'Wartungstimer in building_state werden nicht vor sicherer Coin-Verkürzung persistiert');
+assert.match(machinePurchase,/1 Coin je angefangene 5 Minuten Restzeit/,'Maschinenkauf erklärt die 5-Minuten-Regel nicht');
+assert.match(machinePurchase,/60 Minuten = 12 Coins/,'Maschinenkauf erklärt das 60-Minuten-Beispiel nicht');
+assert.match(machinePurchase,/reduceOperationTimeWithCoins/,'Maschinenmontage/Aufrüstung nutzt nicht den sicheren Serverpfad');
+assert.doesNotMatch(machinePurchase,/max\. 50 Coins|letzten 25 %|mindestens 25 %/,'Maschinenbereich enthält noch die alte Coin- oder Zwangswarte-Regel');
+assert.doesNotMatch(machinePurchase,/accelerateIndustryEquipmentInstallation/,'Maschinen-UI verwendet noch die alte clientseitige Beschleunigung');
 
 assert.equal(runTimeValueUtilsTest(),true,'Timerfelder-Regressionsprüfung fehlgeschlagen');
 assert.equal(runActiveOperationsOverviewTest(),true,'Vorgangsübersicht erkennt nicht alle Zeitvorgänge');
