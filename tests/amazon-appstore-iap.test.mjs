@@ -20,7 +20,8 @@ assert.ok(!amazon.includes("if(!productCache.get(amazonSku))throw"),'Amazon chec
 assert.match(amazon,/button\.disabled=false/,'Mapped Amazon purchase buttons must remain clickable while prices load');
 assert.match(amazon,/bridge\.purchase\(amazonSku\)/,'Amazon checkout must call the generic native bridge directly');
 assert.match(amazon,/orvuno:amazon-iap-user/,'Amazon catalog must refresh after the native Amazon user becomes available');
-assert.match(amazon,/Über Amazon kaufen/,'Amazon must show a usable fallback label while catalog metadata is unavailable');
+assert.match(amazon,/Im Appstore kaufen/,'Store build must show a usable neutral fallback label while catalog metadata is unavailable');
+assert.doesNotMatch(amazon,/title:'Amazon Appstore'|Über Amazon kaufen|Amazon-Kauf wird geöffnet/,'Player-visible Amazon branding must not be used in the in-game purchase UI');
 assert.match(css,/@media\(max-width:760px\)\{\.sitebar\{position:static\}/,'Mobile public pages must not lose reading space to a sticky header');
 assert.match(gameId,/Spiel starten/,'Direct player start must remain available');
 assert.doesNotMatch(gameId,/Spiel-ID laden|ORV-XXXXX-XXXXX-XXXXX-XXXXX|oder vorhandenen Spielstand laden/,'Amazon entry screen must not expose game-ID recovery');
