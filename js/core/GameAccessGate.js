@@ -1,7 +1,15 @@
-// ORVUNO - Spielzugang ohne sichtbare Anmeldung oder Wiederherstellungscode.
+// ORVUNO - normaler Account-Zugang im Web/App; CrazyGames Basic bleibt Gastzugang.
 import { AuthApiClient } from "./AuthApiClient.js";
+import { AccountAuthDialog } from "./AccountAuthDialog.js";
 import { GameIdAccessClient, GameIdAccessDialog } from "./GameIdAccess.js";
 import { applyPlayerMoneyContext } from "./CurrencyPresentationBridge.js";
+
+function isCrazyGamesRuntime(){
+    if(typeof window!=="undefined"&&window.orvunoCrazyGames?.active)return true;
+    if(typeof location==="undefined")return false;
+    const p=new URLSearchParams(location.search||"");
+    return p.get("source")==="crazygames"||p.get("crazygames")==="1"||p.get("platform")==="crazygames";
+}
 
 export class GameAccessGate {
     constructor({ accountSystem, api = new AuthApiClient() } = {}) {
@@ -42,8 +50,6 @@ export class GameAccessGate {
             applyPlayerMoneyContext(user);
         }
 
-        // Das Tutorial ist freiwillig. Der lokale Marker verhindert nur den automatischen Erststart;
-        // "Tutorial öffnen" und die Hilfe bleiben jederzeit manuell erreichbar.
         this.markTutorialVoluntary(profile);
         document.documentElement.classList.add("orvuno-authenticated");
 
@@ -79,11 +85,19 @@ export class GameAccessGate {
     openPlayerAccess(){
         if(this.dialog?.overlay) return;
         document.documentElement.classList.remove("orvuno-authenticated");
-        this.dialog=new GameIdAccessDialog({client:this.gameIdAccess,onAuthenticated:user=>this.grant(user)});
-        this.dialog.open();
+
+        // CrazyGames Basic: anonymer Gastzugang; das Plattform-Modul ersetzt den Dialog passend.
+        if(isCrazyGamesRuntime()){
+            this.dialog=new GameIdAccessDialog({client:this.gameIdAccess,onAuthenticated:user=>this.grant(user)});
+            this.dialog.open();
+            return;
+        }
+
+        // Web, Amazon und Google: bestehende Accounts wieder normal per E-Mail/Passwort anmelden.
+        this.dialog=new AccountAuthDialog({accountSystem:this.accountSystem,api:this.api,required:true,onAuthenticated:user=>this.grant(user)});
+        this.dialog.open("login");
     }
 
-    // Kompatibilitätsalias für ältere Integrationen; die Oberfläche enthält keine Spiel-ID mehr.
     openGameIdAccess(){ return this.openPlayerAccess(); }
     openRequiredLogin(){ this.openPlayerAccess(); }
 
