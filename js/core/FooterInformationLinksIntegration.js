@@ -1,6 +1,7 @@
 // ORVUNO – öffentliche Spielinformationen und Rechtliches bleiben erreichbar,
 // ohne im Spiel dauerhaft Inhalte zu verdecken.
 const PUBLIC_URLS=Object.freeze({
+  nadena:'https://www.nadena-games.de/',
   guide:'/spielanleitung.html',
   faq:'/faq.html',
   updates:'/aktuelles.html',
@@ -29,7 +30,7 @@ function footerItem(label,section){
   Object.assign(b.style,{border:'0',background:'transparent',color:'#9eacc0',padding:'5px 6px',cursor:'pointer',fontSize:'12px',textDecoration:'none',fontFamily:'inherit',display:'block',width:'100%',textAlign:'left'});
   b.onmouseenter=()=>b.style.color='#fff';b.onmouseleave=()=>b.style.color='#9eacc0';b.onclick=()=>open(section);return b;
 }
-const ITEMS=[['Hilfe','help'],['Spielanleitung','guide'],['FAQ','faq'],['Aktuelles','updates'],['Impressum','imprint'],['Datenschutz','privacy'],['Konto löschen','accountDeletion'],['AGB','legal']];
+const ITEMS=[['www.nadena-games.de','nadena'],['Hilfe','help'],['Spielanleitung','guide'],['FAQ','faq'],['Aktuelles','updates'],['Impressum','imprint'],['Datenschutz','privacy'],['Konto löschen','accountDeletion'],['AGB','legal']];
 
 function stylePublicFooter(footer){
   Object.assign(footer.style,{position:'relative',left:'auto',right:'auto',bottom:'auto',zIndex:'1',display:'flex',justifyContent:'center',alignItems:'center',gap:'14px',flexWrap:'wrap',padding:'9px 16px',marginTop:'18px',background:'rgba(5,11,20,.94)',borderTop:'1px solid #1d2b40',fontFamily:'Arial,sans-serif',fontSize:'12px',color:'#8291a6',width:'100%',boxSizing:'border-box'});
