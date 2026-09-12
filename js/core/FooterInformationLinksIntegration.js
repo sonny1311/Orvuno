@@ -9,6 +9,33 @@ const PUBLIC_URLS=Object.freeze({
   privacy:'/datenschutz.html',
   accountDeletion:'/konto-loeschen.html'
 });
+const ORVUNO_URL='https://www.orvuno.de/';
+const ORVUNO_TITLE='ORVUNO – Wirtschaftssimulation mit Lieferketten, Produktion & Handel';
+const ORVUNO_DESCRIPTION='ORVUNO ist eine Wirtschaftssimulation im Browser: Unternehmen aufbauen, Rohstoffe einkaufen, Lager und Personal planen, produzieren, Kundenaufträge erfüllen, liefern, handeln und expandieren.';
+
+function ensureSeoMeta(){
+  const head=document.head;if(!head)return;
+  const meta=(name,content)=>{let el=head.querySelector(`meta[name="${name}"]`);if(!el){el=document.createElement('meta');el.name=name;head.append(el);}el.content=content;};
+  const prop=(name,content)=>{let el=head.querySelector(`meta[property="${name}"]`);if(!el){el=document.createElement('meta');el.setAttribute('property',name);head.append(el);}el.setAttribute('content',content);};
+  let canonical=head.querySelector('link[rel="canonical"]');if(!canonical){canonical=document.createElement('link');canonical.rel='canonical';head.append(canonical);}canonical.href=ORVUNO_URL;
+  document.title=ORVUNO_TITLE;
+  meta('description',ORVUNO_DESCRIPTION);
+  meta('robots','index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1');
+  meta('googlebot','index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1');
+  prop('og:type','website');prop('og:locale','de_DE');prop('og:site_name','ORVUNO');prop('og:title',ORVUNO_TITLE);prop('og:description',ORVUNO_DESCRIPTION);prop('og:url',ORVUNO_URL);
+  meta('twitter:card','summary');meta('twitter:title','ORVUNO – Wirtschaftssimulation im Browser');meta('twitter:description',ORVUNO_DESCRIPTION);
+  let schema=head.querySelector('#orvuno-seo-schema');if(!schema){schema=document.createElement('script');schema.id='orvuno-seo-schema';schema.type='application/ld+json';head.append(schema);}
+  schema.textContent=JSON.stringify({
+    '@context':'https://schema.org','@graph':[
+      {'@type':'VideoGame','@id':'https://www.orvuno.de/#game',name:'ORVUNO',url:ORVUNO_URL,description:ORVUNO_DESCRIPTION,inLanguage:'de-DE',genre:['Wirtschaftssimulation','Managementspiel','Aufbauspiel'],gamePlatform:'Web browser',isAccessibleForFree:true,publisher:{'@type':'Organization',name:'Nadena Games',url:'https://www.nadena-games.de/'}},
+      {'@type':'FAQPage','@id':'https://www.orvuno.de/#faq',mainEntity:[
+        {'@type':'Question',name:'Was ist ORVUNO?',acceptedAnswer:{'@type':'Answer',text:'ORVUNO ist eine fortlaufende Wirtschaftssimulation im Browser. Du führst einen Betrieb und verbindest Einkauf, Lieferungen, Lager, Personal, Maschinen, Produktion, Kundenaufträge, Logistik und Finanzen zu einem funktionierenden Unternehmen.'}},
+        {'@type':'Question',name:'Was macht man in ORVUNO?',acceptedAnswer:{'@type':'Answer',text:'Du planst Einkauf und Lager, beschäftigst Personal, nutzt Maschinen, produzierst Waren, erfüllst Kundenaufträge, organisierst Lieferungen und investierst Gewinne in mehr Kapazität und weitere Betriebe.'}},
+        {'@type':'Question',name:'Ist ORVUNO ein Browsergame?',acceptedAnswer:{'@type':'Answer',text:'Ja. ORVUNO läuft direkt im Browser und wird als Wirtschaftssimulation und Managementspiel von Nadena Games weiterentwickelt.'}}
+      ]}
+    ]
+  });
+}
 
 function removeTopLinks(){
   document.getElementById('world-help-button')?.remove();
@@ -73,13 +100,14 @@ function mountAuthPublicLinks(){
   Object.assign(hint.style,{width:'100%',marginTop:'4px',color:'#8fa0b7',fontSize:'12px',lineHeight:'1.45',textAlign:'center'});nav.append(hint);panel.append(nav);
 }
 function install(){
-  mountFooter();mountAuthPublicLinks();
+  ensureSeoMeta();mountFooter();mountAuthPublicLinks();
   const observer=new MutationObserver(()=>{mountFooter();mountAuthPublicLinks();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   const closePanel=e=>{const footer=document.getElementById('orvuno-footer');if(!footer||footer.contains(e.target))return;const panel=footer.querySelector('div');const toggle=footer.querySelector('button[aria-expanded]');if(panel&&!panel.hidden){panel.hidden=true;toggle?.setAttribute('aria-expanded','false');}};
   document.addEventListener('click',closePanel);
+  window.addEventListener('pageshow',ensureSeoMeta);
   window.addEventListener('beforeunload',()=>{observer.disconnect();document.removeEventListener('click',closePanel);},{once:true});
 }
 if(typeof window!=='undefined'){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 }
-export {mountFooter,removeTopLinks,mountAuthPublicLinks,PUBLIC_URLS};
+export {mountFooter,removeTopLinks,mountAuthPublicLinks,PUBLIC_URLS,ensureSeoMeta};
