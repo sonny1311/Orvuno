@@ -10,8 +10,9 @@ const PUBLIC_URLS=Object.freeze({
   accountDeletion:'/konto-loeschen.html'
 });
 const ORVUNO_URL='https://www.orvuno.de/';
-const ORVUNO_TITLE='ORVUNO – Wirtschaftssimulation mit Lieferketten, Produktion & Handel';
-const ORVUNO_DESCRIPTION='ORVUNO ist eine Wirtschaftssimulation im Browser: Unternehmen aufbauen, Rohstoffe einkaufen, Lager und Personal planen, produzieren, Kundenaufträge erfüllen, liefern, handeln und expandieren.';
+const ORVUNO_TITLE='ORVUNO – Wirtschaftssimulation, Produktion & Handel';
+const ORVUNO_DESCRIPTION='ORVUNO ist eine Wirtschaftssimulation im Browser: Führe Betriebe, plane Einkauf, Lager und Personal, produziere, liefere, handle und expandiere.';
+const NADENA_LOGO='https://www.nadena-games.de/assets/nadena-games-logo.jpg';
 
 function ensureSeoMeta(){
   const head=document.head;if(!head)return;
@@ -27,7 +28,7 @@ function ensureSeoMeta(){
   let schema=head.querySelector('#orvuno-seo-schema');if(!schema){schema=document.createElement('script');schema.id='orvuno-seo-schema';schema.type='application/ld+json';head.append(schema);}
   schema.textContent=JSON.stringify({
     '@context':'https://schema.org','@graph':[
-      {'@type':'VideoGame','@id':'https://www.orvuno.de/#game',name:'ORVUNO',url:ORVUNO_URL,description:ORVUNO_DESCRIPTION,inLanguage:'de-DE',genre:['Wirtschaftssimulation','Managementspiel','Aufbauspiel'],gamePlatform:'Web browser',isAccessibleForFree:true,publisher:{'@type':'Organization',name:'Nadena Games',url:'https://www.nadena-games.de/'}},
+      {'@type':'VideoGame','@id':'https://www.orvuno.de/#game',name:'ORVUNO',url:ORVUNO_URL,description:ORVUNO_DESCRIPTION,inLanguage:'de-DE',genre:['Wirtschaftssimulation','Managementspiel','Aufbauspiel'],gamePlatform:'Web browser',isAccessibleForFree:true,publisher:{'@type':'Organization',name:'Nadena Games',url:'https://www.nadena-games.de/',logo:NADENA_LOGO}},
       {'@type':'FAQPage','@id':'https://www.orvuno.de/#faq',mainEntity:[
         {'@type':'Question',name:'Was ist ORVUNO?',acceptedAnswer:{'@type':'Answer',text:'ORVUNO ist eine fortlaufende Wirtschaftssimulation im Browser. Du führst einen Betrieb und verbindest Einkauf, Lieferungen, Lager, Personal, Maschinen, Produktion, Kundenaufträge, Logistik und Finanzen zu einem funktionierenden Unternehmen.'}},
         {'@type':'Question',name:'Was macht man in ORVUNO?',acceptedAnswer:{'@type':'Answer',text:'Du planst Einkauf und Lager, beschäftigst Personal, nutzt Maschinen, produzierst Waren, erfüllst Kundenaufträge, organisierst Lieferungen und investierst Gewinne in mehr Kapazität und weitere Betriebe.'}},
