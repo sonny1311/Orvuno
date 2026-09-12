@@ -87,6 +87,15 @@ function mountFooter(){
   if(mode==='app')styleAppFooter(footer);else stylePublicFooter(footer);
   return footer;
 }
+function mountPublicPlayerTips(){
+  if(document.documentElement.classList.contains('orvuno-authenticated'))return;
+  const root=document.getElementById('orvuno-public-context');
+  if(!root||root.querySelector('[data-orvuno-player-tips="1"]'))return;
+  const section=document.createElement('section');section.dataset.orvunoPlayerTips='1';section.className='public-section';section.setAttribute('aria-labelledby','orvuno-player-tips-title');
+  section.innerHTML='<h2 id="orvuno-player-tips-title">Praktische Tipps für einen stabilen Betrieb</h2><p>ORVUNO belohnt nicht den größten Einkauf oder die größte Maschine, sondern eine Lieferkette, die zusammenpasst. Diese Regeln vermeiden besonders am Anfang unnötig gebundenes Kapital und Produktionsstillstand.</p><div class="public-grid" style="margin:18px 0 0"><article><h2>💶 Liquidität schützen</h2><p>Gib nicht das gesamte Betriebsgeld für Rohstoffe oder Ausbau aus. Halte eine Reserve für Personal, Produktion, Logistik und unerwartete Engpässe frei.</p></article><article><h2>📦 Lager mit Reserve planen</h2><p>Ein komplett volles Lager kann Wareneingang und fertige Produktion gleichzeitig blockieren. Freier Platz ist deshalb ein echter Teil deiner Produktionskapazität.</p></article><article><h2>🏭 Engpass statt Größe</h2><p>Kaufe eine größere Maschine erst, wenn wirklich die Maschine bremst. Fehlen Rohstoffe, Personal, Lager oder Nachfrage, löst mehr Technik das Problem nicht.</p></article><article><h2>📋 Vom Auftrag rückwärts denken</h2><p>Prüfe zuerst Produkt, Menge und Lieferfrist. Rechne dann zurück, wann Material bestellt, produziert, abgefüllt und ausgeliefert werden muss.</p></article></div>';
+  const flow=root.querySelector('.public-section');
+  if(flow)flow.insertAdjacentElement('afterend',section);else root.append(section);
+}
 function mountAuthPublicLinks(){
   if(document.documentElement.classList.contains('orvuno-authenticated'))return;
   const heading=[...document.querySelectorAll('h1')].find(h=>/anmelden|registrieren|sign in|register/i.test(String(h.textContent||'')));
@@ -101,14 +110,14 @@ function mountAuthPublicLinks(){
   Object.assign(hint.style,{width:'100%',marginTop:'4px',color:'#8fa0b7',fontSize:'12px',lineHeight:'1.45',textAlign:'center'});nav.append(hint);panel.append(nav);
 }
 function install(){
-  ensureSeoMeta();mountFooter();mountAuthPublicLinks();
-  const observer=new MutationObserver(()=>{mountFooter();mountAuthPublicLinks();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  ensureSeoMeta();mountFooter();mountPublicPlayerTips();mountAuthPublicLinks();
+  const observer=new MutationObserver(()=>{mountFooter();mountPublicPlayerTips();mountAuthPublicLinks();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   const closePanel=e=>{const footer=document.getElementById('orvuno-footer');if(!footer||footer.contains(e.target))return;const panel=footer.querySelector('div');const toggle=footer.querySelector('button[aria-expanded]');if(panel&&!panel.hidden){panel.hidden=true;toggle?.setAttribute('aria-expanded','false');}};
   document.addEventListener('click',closePanel);
-  window.addEventListener('pageshow',ensureSeoMeta);
+  window.addEventListener('pageshow',()=>{ensureSeoMeta();mountPublicPlayerTips();});
   window.addEventListener('beforeunload',()=>{observer.disconnect();document.removeEventListener('click',closePanel);},{once:true});
 }
 if(typeof window!=='undefined'){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 }
-export {mountFooter,removeTopLinks,mountAuthPublicLinks,PUBLIC_URLS,ensureSeoMeta};
+export {mountFooter,removeTopLinks,mountPublicPlayerTips,mountAuthPublicLinks,PUBLIC_URLS,ensureSeoMeta};
