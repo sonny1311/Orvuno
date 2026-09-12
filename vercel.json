@@ -5,5 +5,31 @@
       "source": "/.well-known/assetlinks.json",
       "destination": "/api/assetlinks"
     }
+  ],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Link", "value": "<https://www.orvuno.de/>; rel=\"canonical\"" }
+      ]
+    },
+    {
+      "source": "/spielanleitung.html",
+      "headers": [
+        { "key": "Link", "value": "<https://www.orvuno.de/spielanleitung.html>; rel=\"canonical\"" }
+      ]
+    },
+    {
+      "source": "/faq.html",
+      "headers": [
+        { "key": "Link", "value": "<https://www.orvuno.de/faq.html>; rel=\"canonical\"" }
+      ]
+    },
+    {
+      "source": "/aktuelles.html",
+      "headers": [
+        { "key": "Link", "value": "<https://www.orvuno.de/aktuelles.html>; rel=\"canonical\"" }
+      ]
+    }
   ]
 }
