@@ -1,6 +1,19 @@
-# WorldProject v0.1.1
+# ORVUNO – Wirtschaftssimulation im Browser
 
-Engine-Grundstruktur erweitert.
+ORVUNO ist eine fortlaufende Wirtschaftssimulation von Nadena Games. Spieler führen Betriebe und verbinden Einkauf, Lieferanten, Lager, Personal, Maschinen, Produktion, Abfüllung, Kundenaufträge, Logistik, Markt und Finanzierung zu einem wachsenden Unternehmen.
+
+## Offizielle Seiten
+
+- [ORVUNO spielen](https://www.orvuno.de/)
+- [ORVUNO Spielanleitung](https://www.orvuno.de/spielanleitung.html)
+- [Wirtschaftssimulation-Tipps](https://www.orvuno.de/wirtschaftssimulation-tipps.html)
+- [Produktion & Logistik richtig planen](https://www.orvuno.de/produktion-logistik.html)
+- [ORVUNO FAQ](https://www.orvuno.de/faq.html)
+- [Nadena Games](https://www.nadena-games.de/)
+
+## Projekt
+
+Die Spielwelt wird laufend weiterentwickelt. Technische Änderungen, Balancing-Entscheidungen, neue Systeme und Deployment-Anpassungen werden im Repository dokumentiert.
 
 ## Chat-Kontinuitätsregel
 
