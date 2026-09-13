@@ -3,6 +3,7 @@
 const PUBLIC_URLS=Object.freeze({
   nadena:'https://www.nadena-games.de/',
   nadenaHub:'https://www.nadena-games.de/browsergame-ratgeber.html',
+  forum:'https://forum.nadena-games.de/',
   hofhain:'https://www.hofhain.de/ueber-hofhain.html',
   futnaro:'https://www.futnaro.de/hilfe.html',
   astrawelle:'https://www.astrawelle.de/spielinfo/',
@@ -72,7 +73,7 @@ function footerItem(label,section){
   b.onmouseenter=()=>b.style.color='#fff';b.onmouseleave=()=>b.style.color='#9eacc0';b.onclick=()=>open(section);return b;
 }
 const ITEMS=[['Hilfe','help'],['Spielanleitung','guide'],['Strategie-Tipps','strategy'],['Produktion & Logistik','productionLogistics'],['FAQ','faq'],['Aktuelles','updates'],['Impressum','imprint'],['Datenschutz','privacy'],['Konto löschen','accountDeletion'],['AGB','legal']];
-const PUBLIC_NETWORK_ITEMS=[['Nadena Browsergame-Ratgeber','nadenaHub'],['Hofhain – Bauernhofspiel','hofhain'],['Futnaro – Online Fußballmanager','futnaro'],['AstraWelle – Weltraum-Aufbauspiel','astrawelle']];
+const PUBLIC_NETWORK_ITEMS=[['Forum','forum'],['Nadena Browsergame-Ratgeber','nadenaHub'],['Hofhain – Bauernhofspiel','hofhain'],['Futnaro – Online Fußballmanager','futnaro'],['AstraWelle – Weltraum-Aufbauspiel','astrawelle']];
 
 function stylePublicFooter(footer){
   Object.assign(footer.style,{position:'relative',left:'auto',right:'auto',bottom:'auto',zIndex:'1',display:'flex',justifyContent:'center',alignItems:'center',gap:'14px',flexWrap:'wrap',padding:'9px 16px',marginTop:'18px',background:'rgba(5,11,20,.94)',borderTop:'1px solid #1d2b40',fontFamily:'Arial,sans-serif',fontSize:'12px',color:'#8291a6',width:'100%',boxSizing:'border-box'});
@@ -90,6 +91,7 @@ function styleAppFooter(footer){
   Object.assign(panel.style,{position:'absolute',left:'0',bottom:'38px',width:'min(280px,calc(100vw - 16px))',maxHeight:'55vh',overflow:'auto',padding:'8px',border:'1px solid #2d405b',borderRadius:'12px',background:'rgba(5,11,20,.98)',boxShadow:'0 14px 40px rgba(0,0,0,.5)'});
   panel.append(nadenaBrandLink());
   for(const [label,section] of ITEMS)panel.append(footerItem(label,section));
+  for(const [label,section] of PUBLIC_NETWORK_ITEMS)panel.append(footerItem(label,section));
   toggle.onclick=e=>{e.preventDefault();e.stopPropagation();panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',panel.hidden?'false':'true');};
   footer.append(toggle,panel);
 }
@@ -119,7 +121,7 @@ function mountAuthPublicLinks(){
   if(!heading)return;const panel=heading.closest('section')||heading.parentElement;if(!panel||panel.querySelector('[data-orvuno-public-links="1"]'))return;
   const nav=document.createElement('nav');nav.dataset.orvunoPublicLinks='1';nav.setAttribute('aria-label','ORVUNO Informationen');
   Object.assign(nav.style,{display:'flex',gap:'10px',flexWrap:'wrap',justifyContent:'center',marginTop:'18px',paddingTop:'14px',borderTop:'1px solid #2b3a50',fontFamily:'Arial,sans-serif'});
-  for(const [label,href] of [['Spielanleitung',PUBLIC_URLS.guide],['Strategie-Tipps',PUBLIC_URLS.strategy],['Produktion & Logistik',PUBLIC_URLS.productionLogistics],['FAQ',PUBLIC_URLS.faq],['Aktuelles',PUBLIC_URLS.updates],['Nadena Browsergame-Ratgeber',PUBLIC_URLS.nadenaHub],['Datenschutz',PUBLIC_URLS.privacy],['Impressum',PUBLIC_URLS.imprint]]){
+  for(const [label,href] of [['Spielanleitung',PUBLIC_URLS.guide],['Strategie-Tipps',PUBLIC_URLS.strategy],['Produktion & Logistik',PUBLIC_URLS.productionLogistics],['FAQ',PUBLIC_URLS.faq],['Aktuelles',PUBLIC_URLS.updates],['Forum',PUBLIC_URLS.forum],['Nadena Browsergame-Ratgeber',PUBLIC_URLS.nadenaHub],['Datenschutz',PUBLIC_URLS.privacy],['Impressum',PUBLIC_URLS.imprint]]){
     const a=document.createElement('a');a.textContent=label;a.href=href;a.target='_blank';a.rel='noopener noreferrer';
     Object.assign(a.style,{color:'#9cc0ff',fontSize:'13px',fontWeight:'700',textDecoration:'underline',textUnderlineOffset:'3px'});nav.append(a);
   }
