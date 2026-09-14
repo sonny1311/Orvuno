@@ -87,6 +87,7 @@ async function loadCrazyGamesRuntime(){
     './core/GameSaveStatusIntegration.js',
     './core/ActiveOperationsOverviewUI.js',
     './core/GameResumeRefreshIntegration.js',
+    './core/InGameAdminMessagesIntegration.js',
     './core/GameRuntimeErrorBoundary.js'
   ];
   for(const path of modules){
