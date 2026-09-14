@@ -1,4 +1,6 @@
 // ORVUNO – wartet auf die vorhandene Hauptnavigation und hängt die neuen Spielerzentrale-Buttons stabil ein.
+import './NadenaAdminMessagingIntegration.js';
+
 function add(id,text,section){
   const nav=document.getElementById('world-main-nav');if(!nav||document.getElementById(id))return false;
   const b=document.createElement('button');b.id=id;b.textContent=text;
