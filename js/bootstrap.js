@@ -75,6 +75,7 @@ import "./core/DashboardFinishedGoodsSummaryIntegration.js";
 import "./core/DashboardSummaryGradientIntegration.js";
 import "./core/DashboardMainNavigationIntegration.js";
 import "./core/SimplifiedMainNavigationIntegration.js";
+import "./core/GuidedPlayerFlowIntegration.js";
 import "./core/OperationalDialogSectionPersistenceIntegration.js";
 import "./core/OperationalDialogCloseGuardIntegration.js";
 import "./core/BusinessPortfolioProductionUsabilityIntegration.js";
@@ -129,7 +130,6 @@ import { initializeHereMaps } from "./core/HereMapsIntegration.js";
 async function startOrvuno(){
   if(!window.orvunoAccessPrechecked)await gameAccessGate.ensureAccess();
   console.log("✅ ORVUNO ACCOUNT FREIGEGEBEN – SPIEL WIRD GELADEN");
-  // Maps are useful but must not block the first playable frame.
   initializeHereMaps().catch(error=>console.warn('Verkehrskarte lädt später',error));
   await import("./main.js");
 }
@@ -139,7 +139,6 @@ startOrvuno().catch(error=>{
   window.orvunoShowBootError?.(error?.message||String(error));
 });
 
-// Development diagnostics are opt-in only and never part of normal player startup.
 if(new URLSearchParams(location.search).get('orvuno_dev_tests')==='1'){
   const loadDev=()=>import('./core/CoreRegressionSuite.js').catch(error=>console.error('ORVUNO dev diagnostics failed',error));
   if('requestIdleCallback' in window)requestIdleCallback(loadDev,{timeout:5000});else setTimeout(loadDev,5000);
