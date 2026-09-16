@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const source=fs.readFileSync('js/core/MobileAppUsabilityIntegration.js','utf8');
 
-assert.match(source,/data\.orvunoUxStore=store/,'mobile UX must mark the active store');
+assert.match(source,/root\.dataset\.orvunoUxStore=store/,'mobile UX must mark the active store');
 assert.match(source,/\['amazon','google','web'\]/,'mobile UX must support Amazon, Google and web');
 assert.match(source,/--orvuno-touch:46px/,'mobile touch targets must be large enough');
 assert.match(source,/min-height:44px/,'interactive controls must keep a practical minimum touch height');
