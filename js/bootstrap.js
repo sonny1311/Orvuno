@@ -74,6 +74,7 @@ import "./core/DashboardSummaryNavigationIntegration.js";
 import "./core/DashboardFinishedGoodsSummaryIntegration.js";
 import "./core/DashboardSummaryGradientIntegration.js";
 import "./core/DashboardMainNavigationIntegration.js";
+import "./core/SimplifiedMainNavigationIntegration.js";
 import "./core/OperationalDialogSectionPersistenceIntegration.js";
 import "./core/OperationalDialogCloseGuardIntegration.js";
 import "./core/BusinessPortfolioProductionUsabilityIntegration.js";
