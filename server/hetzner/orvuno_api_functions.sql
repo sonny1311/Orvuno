@@ -713,6 +713,392 @@ begin
 end;
 $$;
 
+
+create or replace function orvuno_api.jsonb_time_ms(p_value jsonb)
+returns bigint
+language plpgsql
+set search_path = ''
+as $
+declare v_text text;
+begin
+  if p_value is null or p_value='null'::jsonb then return null; end if;
+  v_text:=case when jsonb_typeof(p_value)='string' then p_value #>> '{}' else p_value::text end;
+  if v_text is null or btrim(v_text)='' then return null; end if;
+  begin
+    return v_text::numeric::bigint;
+  exception when others then
+    begin
+      return floor(extract(epoch from v_text::timestamptz)*1000)::bigint;
+    exception when others then
+      return null;
+    end;
+  end;
+end;
+$;
+
+create or replace function orvuno_api.exchange_coins_for_company_money_v2(
+  p_user_id bigint,
+  p_tier text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_user_id bigint; v_cost bigint; v_credit numeric; v_balance bigint;
+  v_money numeric; v_revision bigint; v_company_id bigint;
+  v_existing public.economy_transactions; v_coin_tx_id bigint; v_ledger_id bigint;
+begin
+  v_user_id:=orvuno_api.require_active_user(p_user_id);
+
+  if p_request_id is null or length(trim(p_request_id))<8 or length(p_request_id)>160 then
+    raise exception 'Ungueltige Vorgangs-ID';
+  end if;
+
+  case p_tier
+    when 'money_65000' then v_cost:=200; v_credit:=65000;
+    when 'money_200000' then v_cost:=525; v_credit:=200000;
+    when 'money_450000' then v_cost:=1150; v_credit:=450000;
+    when 'money_1000000' then v_cost:=2400; v_credit:=1000000;
+    when 'money_2800000' then v_cost:=6500; v_credit:=2800000;
+    when 'money_7500000' then v_cost:=15000; v_credit:=7500000;
+    else raise exception 'Unbekanntes Firmengeld-Paket';
+  end case;
+
+  perform pg_advisory_xact_lock(v_user_id);
+
+  select * into v_existing
+  from public.economy_transactions
+  where user_id=v_user_id and idempotency_key=p_request_id
+  for update;
+
+  if found then
+    if v_existing.operation<>'company_money_exchange' or v_existing.reference_id<>p_tier then
+      raise exception 'Vorgangs-ID wurde bereits anders verwendet';
+    end if;
+    return jsonb_build_object(
+      'success',v_existing.status='completed',
+      'tier',p_tier,
+      'coinsSpent',abs(v_existing.coin_delta),
+      'moneyCredited',v_existing.money_delta,
+      'coins',v_existing.coins_after,
+      'money',v_existing.money_after,
+      'moneyRevision',coalesce((v_existing.metadata->>'moneyRevision')::bigint,0),
+      'transactionId',v_existing.id,
+      'requestId',p_request_id,
+      'replayed',true,
+      'error',v_existing.error
+    );
+  end if;
+
+  insert into public.coin_wallets(user_id,balance,updated_at)
+  values(v_user_id,0,now())
+  on conflict(user_id) do nothing;
+
+  select balance into v_balance
+  from public.coin_wallets
+  where user_id=v_user_id
+  for update;
+
+  select id,coalesce(money,0),coalesce(money_revision,0)
+  into v_company_id,v_money,v_revision
+  from public.companies
+  where user_id=v_user_id and closed_at is null
+  order by money_revision desc,is_primary desc,id
+  limit 1
+  for update;
+
+  if not found then raise exception 'Noch kein aktiver Betrieb vorhanden'; end if;
+
+  if v_balance<v_cost then
+    insert into public.economy_transactions(
+      user_id,company_id,operation,reference_type,reference_id,idempotency_key,
+      coin_delta,money_delta,coins_before,coins_after,money_before,money_after,
+      status,error,completed_at
+    )
+    values(
+      v_user_id,v_company_id,'company_money_exchange','monetization_tier',p_tier,p_request_id,
+      0,0,v_balance,v_balance,v_money,v_money,'failed','Nicht genügend Coins',now()
+    )
+    returning id into v_ledger_id;
+
+    return jsonb_build_object(
+      'success',false,'tier',p_tier,'coins',v_balance,'money',v_money,
+      'moneyRevision',v_revision,'transactionId',v_ledger_id,
+      'requestId',p_request_id,'replayed',false,'error','Nicht genügend Coins'
+    );
+  end if;
+
+  update public.coin_wallets
+  set balance=balance-v_cost,updated_at=now()
+  where user_id=v_user_id
+  returning balance into v_balance;
+
+  insert into public.coin_transactions(
+    user_id,amount,balance_after,transaction_type,reference_type,reference_id,note
+  )
+  values(
+    v_user_id,-v_cost,v_balance,'company_money_exchange','monetization_tier',
+    p_tier,'Coins gegen Firmengeld getauscht'
+  )
+  returning id into v_coin_tx_id;
+
+  v_money:=v_money+v_credit;
+  v_revision:=v_revision+1;
+
+  update public.companies
+  set money=v_money,
+      money_revision=v_revision,
+      game_state=jsonb_set(
+        jsonb_set(coalesce(game_state,'{}'::jsonb),'{money}',to_jsonb(v_money),true),
+        '{moneyRevision}',to_jsonb(v_revision),true
+      ),
+      saved_at=now()
+  where user_id=v_user_id and closed_at is null;
+
+  insert into public.economy_transactions(
+    user_id,company_id,operation,reference_type,reference_id,idempotency_key,
+    source_coin_transaction_id,coin_delta,money_delta,coins_before,coins_after,
+    money_before,money_after,status,metadata,completed_at
+  )
+  values(
+    v_user_id,v_company_id,'company_money_exchange','monetization_tier',p_tier,p_request_id,
+    v_coin_tx_id,-v_cost,v_credit,v_balance+v_cost,v_balance,v_money-v_credit,v_money,
+    'completed',jsonb_build_object('moneyRevision',v_revision),now()
+  )
+  returning id into v_ledger_id;
+
+  return jsonb_build_object(
+    'success',true,'tier',p_tier,'coinsSpent',v_cost,'moneyCredited',v_credit,
+    'coins',v_balance,'money',v_money,'moneyRevision',v_revision,
+    'transactionId',v_ledger_id,'requestId',p_request_id,'replayed',false
+  );
+end;
+$;
+
+create or replace function orvuno_api.shorten_company_timed_action(
+  p_user_id bigint,
+  p_company_id bigint,
+  p_action_kind text,
+  p_action_id text,
+  p_hours integer default 1,
+  p_max_coins integer default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_user_id bigint; v_game_state jsonb; v_building_state jsonb; v_doc jsonb;
+  v_paths jsonb; v_spec jsonb; v_source text; v_path text[]; v_nested text[];
+  v_list jsonb; v_parent jsonb; v_item jsonb; v_nested_item jsonb; v_index bigint;
+  v_target_path text[]; v_end_keys text[]; v_end_key text; v_value jsonb;
+  v_ms bigint; v_end_ms bigint;
+  v_now_ms bigint:=floor(extract(epoch from clock_timestamp())*1000)::bigint;
+  v_requested_ms bigint; v_remaining_ms bigint; v_reduction_ms bigint;
+  v_cost integer; v_balance bigint; v_new_balance bigint; v_new_end_ms bigint; v_status text;
+begin
+  v_user_id:=orvuno_api.require_active_user(p_user_id);
+
+  if p_company_id is null or p_action_id is null or btrim(p_action_id)='' then
+    raise exception 'Ungueltiger Vorgang';
+  end if;
+  if p_hours is null or p_hours<1 or p_hours>87600 then
+    raise exception 'Ungueltige Zeitverkuerzung';
+  end if;
+  if p_max_coins is not null and (p_max_coins<1 or p_max_coins>1000000) then
+    raise exception 'Ungueltiges Coin-Limit';
+  end if;
+
+  v_paths:=case p_action_kind
+    when 'production' then '[{"source":"game","path":["productionJobs"]},{"source":"game","path":["productionQueue"]},{"source":"game","path":["operationalSupplyState","productionQueue"]}]'::jsonb
+    when 'delivery' then '[{"source":"game","path":["operationalSupplyState","orders"]},{"source":"game","path":["supplierOrders"]},{"source":"game","path":["marketDeliveries"]},{"source":"game","path":["constructionSite","deliveries"]}]'::jsonb
+    when 'construction' then '[{"source":"game","path":["constructionSite","jobs"]}]'::jsonb
+    when 'land' then '[{"source":"game","path":["constructionSite","jobs"]}]'::jsonb
+    when 'warehouse_expansion' then '[{"source":"game","path":["warehouseExpansion","jobs"]}]'::jsonb
+    when 'machine_upgrade' then '[{"source":"game","path":["machineUpgradeJobs"]},{"source":"building","path":["equipment"]}]'::jsonb
+    when 'business_upgrade' then '[{"source":"game","path":["upgradeJobs"]}]'::jsonb
+    when 'equipment' then '[{"source":"building","path":["equipment"]}]'::jsonb
+    when 'maintenance' then '[{"source":"building","path":["equipment"],"nested":["maintenanceJob"]},{"source":"game","path":["productionMachines"],"nested":["maintenanceJob"]},{"source":"game","path":["machines"],"nested":["maintenanceJob"]},{"source":"game","path":["workforceState","machines"],"nested":["maintenanceJob"]},{"source":"game","path":["workforceOperationsState","machines"],"nested":["maintenanceJob"]}]'::jsonb
+    when 'crew_arrival' then '[{"source":"game","path":["warehouseExpansion","crewBookings"]}]'::jsonb
+    else null
+  end;
+
+  if v_paths is null then raise exception 'Dieser Vorgang kann nicht mit Coins beschleunigt werden'; end if;
+
+  select coalesce(game_state,'{}'::jsonb),coalesce(building_state,'{}'::jsonb)
+  into v_game_state,v_building_state
+  from public.companies
+  where id=p_company_id and user_id=v_user_id and closed_at is null
+  for update;
+
+  if not found then raise exception 'Betrieb nicht gefunden oder keine Berechtigung'; end if;
+
+  for v_spec in select value from jsonb_array_elements(v_paths)
+  loop
+    v_source:=v_spec->>'source';
+    select array_agg(value order by ordinality) into v_path
+    from jsonb_array_elements_text(v_spec->'path') with ordinality;
+
+    if v_spec ? 'nested' then
+      select array_agg(value order by ordinality) into v_nested
+      from jsonb_array_elements_text(v_spec->'nested') with ordinality;
+    else
+      v_nested:=array[]::text[];
+    end if;
+
+    v_doc:=case when v_source='building' then v_building_state else v_game_state end;
+    v_list:=v_doc #> v_path;
+    if jsonb_typeof(v_list)<>'array' then continue; end if;
+
+    for v_parent,v_index in
+      select value,ordinality-1 from jsonb_array_elements(v_list) with ordinality
+    loop
+      v_nested_item:=case when cardinality(v_nested)>0 then v_parent #> v_nested else null end;
+
+      if coalesce(v_parent->>'id',v_parent->>'instanceId','')=p_action_id
+         or coalesce(v_nested_item->>'id',v_nested_item->>'instanceId','')=p_action_id then
+        v_target_path:=v_path||(v_index::text)||v_nested;
+        v_item:=v_doc #> v_target_path;
+        exit;
+      end if;
+    end loop;
+
+    exit when v_target_path is not null;
+  end loop;
+
+  if v_target_path is null or v_item is null then raise exception 'Vorgang nicht gefunden'; end if;
+
+  v_status:=lower(coalesce(v_item->>'status',''));
+  if v_status in ('finished','completed','cancelled','admin_cancelled','delivered','received','stored','sold','closed') then
+    raise exception 'Vorgang ist bereits beendet';
+  end if;
+
+  if p_action_kind='equipment' or (p_action_kind='machine_upgrade' and v_source='building') then
+    if lower(coalesce(v_item->>'status',''))='upgrading' then
+      v_end_keys:=array['upgradeFinishAt','finishAt','busyUntil','installationFinishAt'];
+    else
+      v_end_keys:=array['installationFinishAt','finishAt','busyUntil','upgradeFinishAt'];
+    end if;
+  elsif p_action_kind='maintenance' then
+    v_end_keys:=array['completeAt','finishAt','endsAt'];
+  elsif p_action_kind='crew_arrival' then
+    v_end_keys:=array['availableAt','arrivalAt','arrivesAt','eta'];
+  else
+    v_end_keys:=array[
+      'finishAt','completeAt','arrivalAt','arrivalTime','arriveAt','arrivesAt',
+      'deliveryAt','trafficEta','eta','endsAt','expectedAt','readyAt','availableAt',
+      'installationFinishAt','upgradeFinishAt','busyUntil'
+    ];
+  end if;
+
+  foreach v_end_key in array v_end_keys
+  loop
+    v_ms:=orvuno_api.jsonb_time_ms(v_item->v_end_key);
+    if v_ms is not null and v_ms>0 then v_end_ms:=v_ms; exit; end if;
+  end loop;
+
+  if v_end_ms is null then raise exception 'Vorgang besitzt keine gueltige Endzeit'; end if;
+
+  v_remaining_ms:=greatest(0,v_end_ms-v_now_ms);
+  if v_remaining_ms<=0 then raise exception 'Vorgang ist bereits beendet'; end if;
+
+  v_requested_ms:=p_hours::bigint*3600000;
+  if p_max_coins is not null then
+    v_requested_ms:=least(v_requested_ms,p_max_coins::bigint*300000);
+  end if;
+
+  v_reduction_ms:=least(v_requested_ms,v_remaining_ms);
+  if v_reduction_ms<=0 then raise exception 'Ungueltige Zeitverkuerzung'; end if;
+
+  v_cost:=greatest(1,ceil(v_reduction_ms::numeric/300000)::integer);
+  if p_max_coins is not null and v_cost>p_max_coins then raise exception 'Coin-Limit ueberschritten'; end if;
+
+  select balance into v_balance
+  from public.coin_wallets
+  where user_id=v_user_id
+  for update;
+
+  if not found then raise exception 'Coin-Wallet nicht gefunden'; end if;
+  if v_balance<v_cost then raise exception 'Nicht genug Coins'; end if;
+
+  v_new_balance:=v_balance-v_cost;
+
+  foreach v_end_key in array v_end_keys
+  loop
+    v_value:=v_item->v_end_key;
+    v_ms:=orvuno_api.jsonb_time_ms(v_value);
+    if v_ms is null or v_ms<=v_now_ms then continue; end if;
+
+    v_new_end_ms:=greatest(v_now_ms,v_ms-v_reduction_ms);
+
+    if jsonb_typeof(v_value)='number' then
+      v_doc:=jsonb_set(v_doc,v_target_path||v_end_key,to_jsonb(v_new_end_ms),false);
+    elsif (v_value #>> '{}') ~ '^[0-9]+
+grant usage on schema orvuno_api to orvuno_app;
+
+revoke all on all functions in schema orvuno_api from public;
+grant execute on all functions in schema orvuno_api to orvuno_app;
+ then
+      v_doc:=jsonb_set(v_doc,v_target_path||v_end_key,to_jsonb(v_new_end_ms::text),false);
+    else
+      v_doc:=jsonb_set(
+        v_doc,v_target_path||v_end_key,
+        to_jsonb(to_char(to_timestamp(v_new_end_ms/1000.0) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+        false
+      );
+    end if;
+  end loop;
+
+  update public.coin_wallets
+  set balance=v_new_balance,updated_at=now()
+  where user_id=v_user_id;
+
+  insert into public.coin_transactions(
+    user_id,amount,balance_after,transaction_type,reference_type,reference_id,note
+  )
+  values(
+    v_user_id,-v_cost,v_new_balance,'time_reduction',p_action_kind,p_action_id,
+    format('%s Coin(s) fuer %s Minuten Zeitverkuerzung (frei gewaehlt; 1 Coin je angefangene 5 Minuten)',
+      v_cost,ceil(v_reduction_ms/60000.0))
+  );
+
+  if v_source='building' then
+    v_building_state:=v_doc;
+    update public.companies set building_state=v_building_state,saved_at=now() where id=p_company_id;
+  else
+    v_game_state:=v_doc;
+    update public.companies set game_state=v_game_state,saved_at=now() where id=p_company_id;
+  end if;
+
+  v_item:=v_doc #> v_target_path;
+  v_new_end_ms:=null;
+
+  foreach v_end_key in array v_end_keys
+  loop
+    v_new_end_ms:=orvuno_api.jsonb_time_ms(v_item->v_end_key);
+    exit when v_new_end_ms is not null and v_new_end_ms>0;
+  end loop;
+
+  return jsonb_build_object(
+    'success',true,
+    'costCoins',v_cost,
+    'requestedCoinBudget',p_max_coins,
+    'reducedMs',v_reduction_ms,
+    'reducedMinutes',ceil(v_reduction_ms/60000.0),
+    'priceUnitMinutes',5,
+    'coinsPerUnit',1,
+    'newEndMs',v_new_end_ms,
+    'newBalance',v_new_balance,
+    'kind',p_action_kind,
+    'actionId',p_action_id
+  );
+end;
+$;
+
 revoke all on schema orvuno_api from public;
 grant usage on schema orvuno_api to orvuno_app;
 
