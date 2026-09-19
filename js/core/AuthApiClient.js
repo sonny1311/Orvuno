@@ -29,7 +29,50 @@ export class AuthApiClient {
  async ensureCompany(d={}){const r=await this.rpc("ensure_player_company",{p_name:d.name||null,p_industry:d.industry||null,p_company_type:d.companyType||d.type||null});return{success:true,company:Array.isArray(r)?r[0]:r};}
  async createBusiness(d={}){const r=await this.rpc("create_player_business",{p_name:d.name||null,p_industry:d.industry||null,p_company_type:d.companyType||d.type||null,p_slot_no:Number(d.slotNo)});return{success:true,company:Array.isArray(r)?r[0]:r};}
  async createPaidBusiness(d={}){const sourceId=d.sourceCompanyId||d.sourceCompany?.serverCompanyId||d.sourceCompany?.id;if(!sourceId)throw new Error("Quellbetrieb für bezahlte Expansion fehlt");const r=await this.rpc("create_player_business_paid",{p_name:d.name||null,p_industry:d.industry||null,p_company_type:d.companyType||d.type||null,p_slot_no:Number(d.slotNo),p_source_company_id:Number(sourceId),p_location_class:d.locationClass||"smallTown",p_property_mode:d.propertyMode==="buy"?"buy":"rent",p_size_level:Math.max(1,Number(d.propertySizeLevel||1))});return{success:true,company:Array.isArray(r)?r[0]:r};}
- async saveGameState(s){const r=await this.rpc("save_player_game_state",{p_state:s||{}});return{success:true,company:Array.isArray(r)?r[0]:r};}async saveBusinessState(id,s){const r=await this.rpc("save_player_business_state",{p_company_id:Number(id),p_state:s||{}});return{success:true,company:Array.isArray(r)?r[0]:r};}async updateBusinessSetup(id,p,b){const r=await this.rpc("update_player_business_setup",{p_company_id:Number(id),p_setup_phase:p,p_building_state:b||{}});return{success:true,company:Array.isArray(r)?r[0]:r};}
+ async shadowSave(path,payload,expectedRevision,targetCompanyId=null){
+  try{
+   const local=await this.localAccountOverview();
+   const companies=Array.isArray(local?.companies)?local.companies:[];
+   const target=targetCompanyId!=null
+    ? companies.find(c=>String(c?.id)===String(targetCompanyId))
+    : (companies.find(c=>c?.is_primary)||companies[0]);
+   if(!target)return{status:"skipped",reason:"local_company_missing"};
+   const localRevision=Number(target.money_revision??target.game_state?.moneyRevision??0);
+   const expected=Number(expectedRevision??0);
+   if(!Number.isFinite(expected)||localRevision!==expected){
+    console.warn("ORVUNO HETZNER SHADOW-SAVE UEBERSPRUNGEN: Revision weicht ab",{companyId:target.id,localRevision,expectedRevision:expected});
+    return{status:"skipped",reason:"revision_mismatch",localRevision,expectedRevision:expected};
+   }
+   const token=await this.ensureAccessToken();
+   if(!token)return{status:"skipped",reason:"not_authenticated"};
+   const response=await fetch(`${this.localApiBase}/${path}`,{
+    method:"POST",
+    headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json","Accept":"application/json"},
+    body:JSON.stringify(payload),
+    cache:"no-store"
+   });
+   const body=await response.json().catch(()=>({}));
+   if(!response.ok||body?.success===false)throw new Error(body?.error||body?.message||`HTTP ${response.status}`);
+   return{status:"synced",source:body?.source||"hetzner",company:body?.company||null};
+  }catch(error){
+   console.warn("ORVUNO HETZNER SHADOW-SAVE FEHLGESCHLAGEN",error);
+   return{status:"failed",reason:error?.message||String(error)};
+  }
+ }
+ async saveGameState(s){
+  const state=s||{},expectedRevision=state?.moneyRevision;
+  const r=await this.rpc("save_player_game_state",{p_state:state});
+  const company=Array.isArray(r)?r[0]:r;
+  const shadow=await this.shadowSave("save-game-state",{state},expectedRevision,null);
+  return{success:true,company,shadow};
+ }
+ async saveBusinessState(id,s){
+  const companyId=Number(id),state=s||{},expectedRevision=state?.moneyRevision;
+  const r=await this.rpc("save_player_business_state",{p_company_id:companyId,p_state:state});
+  const company=Array.isArray(r)?r[0]:r;
+  const shadow=await this.shadowSave("save-business-state",{companyId,state},expectedRevision,companyId);
+  return{success:true,company,shadow};
+ }async updateBusinessSetup(id,p,b){const r=await this.rpc("update_player_business_setup",{p_company_id:Number(id),p_setup_phase:p,p_building_state:b||{}});return{success:true,company:Array.isArray(r)?r[0]:r};}
  async transferBusinessMoney(a,b,x){const r=await this.rpc("transfer_business_money",{p_from_company_id:Number(a),p_to_company_id:Number(b),p_amount:Number(x)});return{success:true,balances:Array.isArray(r)?r[0]:r};}async listInternalTransfers(){return this.rest(`business_internal_transfers?select=*&order=created_at.desc&limit=100`);}async listExpansionLoans(){return this.rest(`business_expansion_loans?select=*&order=created_at.desc`);}async takeExpansionLoan(companyId,offer){const r=await this.rpc("take_expansion_loan",{p_company_id:Number(companyId),p_amount:Number(offer.amount),p_annual_rate:Number(offer.annualRate),p_term_months:Number(offer.termMonths),p_monthly_payment:Number(offer.monthlyPayment)});return{success:true,loan:Array.isArray(r)?r[0]:r};}
  async listCoinOrders(){return this.rest("coin_market_orders?status=eq.open&select=*&order=price_per_coin.asc,created_at.asc");}async createCoinSellOrder(a,p){return{success:true,orderId:await this.rpc("create_coin_sell_order",{p_amount:Number(a),p_price_per_coin:Number(p)})};}async cancelCoinSellOrder(id){return{success:true,balance:await this.rpc("cancel_coin_sell_order",{p_order_id:Number(id)})};}async buyCoinOrder(id,a){const r=await this.rpc("buy_coin_market_order",{p_order_id:Number(id),p_amount:Number(a)});window.dispatchEvent(new CustomEvent("world:server-balances-changed",{detail:r}));return{success:true,trade:Array.isArray(r)?r[0]:r};}
 }
