@@ -55,7 +55,7 @@ async function withUser(req, fn) {
   const client = await pool.connect();
   try {
     const header = String(req.headers.authorization || "");
-    const match = header.match(/^Bearer\\s+(.+)$/i);
+    const match = header.match(/^Bearer\s+(.+)$/i);
     if (!match) throw httpError(401, "Nicht angemeldet");
 
     const auth = await getAuthUser(req);
