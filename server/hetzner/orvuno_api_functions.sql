@@ -1108,6 +1108,145 @@ END;
 $$;
 
 
+create table if not exists orvuno_api.entitlement_sync_state(
+  user_id bigint primary key references public.users(id) on delete cascade,
+  supabase_coin_balance bigint not null default 0,
+  synced_at timestamptz not null default now()
+);
+
+insert into orvuno_api.entitlement_sync_state(user_id,supabase_coin_balance,synced_at)
+select w.user_id,w.balance,now()
+from public.coin_wallets w
+on conflict(user_id) do nothing;
+
+create or replace function orvuno_api.bootstrap_user_from_supabase(
+  p_profile jsonb,
+  p_coin_balance bigint default 0
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $fn$
+declare
+  v_user public.users;
+  v_id bigint;
+begin
+  if p_profile is null or jsonb_typeof(p_profile)<>'object' then
+    raise exception 'Ungueltiges Supabase-Profil';
+  end if;
+
+  v_user:=jsonb_populate_record(null::public.users,p_profile);
+  if v_user.id is null or v_user.auth_user_id is null then
+    raise exception 'Supabase-Profil ohne Benutzer-ID';
+  end if;
+
+  insert into public.users
+  select (v_user).*
+  on conflict do nothing;
+
+  select id into v_id
+  from public.users
+  where auth_user_id=v_user.auth_user_id
+  limit 1;
+
+  if v_id is null then
+    raise exception 'Lokaler Benutzer konnte nicht angelegt werden';
+  end if;
+
+  insert into public.coin_wallets(user_id,balance,updated_at)
+  values(v_id,greatest(0,coalesce(p_coin_balance,0)),now())
+  on conflict(user_id) do nothing;
+
+  insert into orvuno_api.entitlement_sync_state(user_id,supabase_coin_balance,synced_at)
+  values(v_id,greatest(0,coalesce(p_coin_balance,0)),now())
+  on conflict(user_id) do nothing;
+
+  perform setval(
+    pg_get_serial_sequence('public.users','id'),
+    greatest((select coalesce(max(id),1) from public.users),1),
+    true
+  );
+
+  return v_id;
+end;
+$fn$;
+
+create or replace function orvuno_api.apply_supabase_entitlements(
+  p_user_id bigint,
+  p_supabase_coin_balance bigint,
+  p_premium_plan text,
+  p_premium_until timestamptz,
+  p_premium_auto_renew boolean,
+  p_status text,
+  p_deleted_at timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $fn$
+declare
+  v_previous bigint;
+  v_delta bigint:=0;
+  v_balance bigint;
+begin
+  if not exists(select 1 from public.users where id=p_user_id) then
+    raise exception 'Lokaler Benutzer fehlt';
+  end if;
+
+  insert into public.coin_wallets(user_id,balance,updated_at)
+  values(p_user_id,0,now())
+  on conflict(user_id) do nothing;
+
+  select supabase_coin_balance into v_previous
+  from orvuno_api.entitlement_sync_state
+  where user_id=p_user_id
+  for update;
+
+  if not found then
+    insert into orvuno_api.entitlement_sync_state(user_id,supabase_coin_balance,synced_at)
+    values(p_user_id,greatest(0,coalesce(p_supabase_coin_balance,0)),now());
+  else
+    v_delta:=coalesce(p_supabase_coin_balance,0)-coalesce(v_previous,0);
+
+    if v_delta<>0 then
+      update public.coin_wallets
+      set balance=greatest(0,balance+v_delta),
+          updated_at=now()
+      where user_id=p_user_id;
+    end if;
+
+    update orvuno_api.entitlement_sync_state
+    set supabase_coin_balance=greatest(0,coalesce(p_supabase_coin_balance,0)),
+        synced_at=now()
+    where user_id=p_user_id;
+  end if;
+
+  update public.users
+  set premium_plan=p_premium_plan,
+      premium_until=p_premium_until,
+      premium_auto_renew=coalesce(p_premium_auto_renew,false),
+      status=coalesce(nullif(p_status,''),status),
+      deleted_at=p_deleted_at
+  where id=p_user_id;
+
+  select balance into v_balance
+  from public.coin_wallets
+  where user_id=p_user_id;
+
+  return jsonb_build_object(
+    'success',true,
+    'coinBalance',coalesce(v_balance,0),
+    'importedDelta',v_delta,
+    'premiumPlan',p_premium_plan,
+    'premiumUntil',p_premium_until,
+    'premiumAutoRenew',coalesce(p_premium_auto_renew,false),
+    'status',p_status
+  );
+end;
+$fn$;
+
 revoke all on schema orvuno_api from public;
 grant usage on schema orvuno_api to orvuno_app;
 
