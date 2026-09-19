@@ -15,64 +15,33 @@ export class AuthApiClient {
  async register(d){const r=await fetch(`${this.baseUrl}/auth/v1/signup`,{method:"POST",headers:this.headers(),body:JSON.stringify({email:d.email,password:d.password,data:{username:d.username,country_code:d.countryCode||"DE",language_code:d.languageCode||"de",terms_version:"1.0",privacy_version:"1.0"}})}),b=await this.parse(r);if(b.access_token)this.saveSession(b);return{success:true,user:b.user,session:b.access_token?b:null,confirmationRequired:!b.access_token};}
  async login({email,password,emailOrUsername}={}){const r=await fetch(`${this.baseUrl}/auth/v1/token?grant_type=password`,{method:"POST",headers:this.headers(),body:JSON.stringify({email:email||emailOrUsername,password})}),b=await this.parse(r);this.saveSession(b);return{success:true,user:await this.me()};}
  async refreshSession(){const token=this.session?.refresh_token;if(!token)throw new Error("Keine Sitzung vorhanden");const r=await fetch(`${this.baseUrl}/auth/v1/token?grant_type=refresh_token`,{method:"POST",headers:this.headers(),body:JSON.stringify({refresh_token:token})}),b=await this.parse(r);this.saveSession(b);return b;}async ensureAccessToken(){if(!this.session?.access_token)return null;const exp=Number(this.session.expires_at||0);if(exp&&exp-60>Math.floor(Date.now()/1000))return this.session.access_token;try{await this.refreshSession();return this.session?.access_token||null;}catch{this.saveSession(null);return null;}}
- async authRequest(path,o={}){if(!await this.ensureAccessToken())throw new Error("Nicht angemeldet");const r=await fetch(`${this.baseUrl}${path}`,{...o,headers:{...this.headers({auth:true}),...(o.headers||{})}});return this.parse(r);}async rest(path,o={}){return this.authRequest(`/rest/v1/${path}`,o);}async rpc(n,d={}){return this.rest(`rpc/${n}`,{method:"POST",body:JSON.stringify(d)});}
- async localAccountOverview(){const token=await this.ensureAccessToken();if(!token)throw new Error("Nicht angemeldet");const r=await fetch(`${this.localApiBase}/account`,{headers:{Authorization:`Bearer ${token}`,"Accept":"application/json"},cache:"no-store"});const b=await r.json().catch(()=>({}));if(!r.ok||b?.success===false)throw new Error(b?.error||b?.message||`HTTP ${r.status}`);return b;}
- async me(){if(!await this.ensureAccessToken())throw new Error("Nicht angemeldet");const ar=await fetch(`${this.baseUrl}/auth/v1/user`,{headers:this.headers({auth:true,json:false})}),au=await this.parse(ar),rows=await this.rest(`users?auth_user_id=eq.${encodeURIComponent(au.id)}&select=*`),p=rows?.[0];if(!p)throw new Error("Spielerprofil wurde noch nicht angelegt");return{...p,authId:au.id,emailConfirmedAt:au.email_confirmed_at||null,premiumUntil:p.premium_until?new Date(p.premium_until).getTime():0,premiumPlan:p.premium_plan||null,premiumAutoRenew:!!p.premium_auto_renew,tutorialSeenAt:p.tutorial_seen_at?new Date(p.tutorial_seen_at).getTime():0,tutorialCompletedAt:p.tutorial_completed_at?new Date(p.tutorial_completed_at).getTime():0};}
- async processBusinessFinances(){const r=await this.rpc("process_player_business_finances",{});return{success:true,events:Array.isArray(r?.events)?r.events:[],processedAt:Number(r?.processedAt||0)};}
- async accountOverview(){const user=await this.me();const companies=await this.rest(`companies?user_id=eq.${encodeURIComponent(user.id)}&closed_at=is.null&select=*&order=slot_no.asc,created_at.asc`);let wallet={balance:0};try{const rows=await this.rest(`coin_wallets?user_id=eq.${encodeURIComponent(user.id)}&select=balance&limit=1`);if(rows?.[0])wallet={balance:Number(rows[0].balance||0)};}catch(error){console.warn("Coin-Wallet konnte nicht geladen werden",error);}return{success:true,user,companies:Array.isArray(companies)?companies:[],wallet,source:"supabase"};}
- async markTutorialSeen({completed=false}={}){const r=await this.rpc("set_orvuno_tutorial_state",{p_completed:!!completed});if(typeof window!=="undefined"){const patch={tutorial_seen_at:r?.tutorialSeenAt||window.worldCurrentUser?.tutorial_seen_at||new Date().toISOString()};if(r?.tutorialCompletedAt)patch.tutorial_completed_at=r.tutorialCompletedAt;window.worldCurrentUser={...(window.worldCurrentUser||{}),...patch};window.dispatchEvent(new CustomEvent("world:profile-updated",{detail:{user:window.worldCurrentUser}}));}return r;}
+ async authRequest(path,o={}){if(!await this.ensureAccessToken())throw new Error("Nicht angemeldet");const r=await fetch(`${this.baseUrl}${path}`,{...o,headers:{...this.headers({auth:true}),...(o.headers||{})}});return this.parse(r);}
+ async rest(path,o={}){return this.authRequest(`/rest/v1/${path}`,o);}
+ async localRequest(path,{method="GET",body=null,headers={}}={}){const token=await this.ensureAccessToken();if(!token)throw new Error("Nicht angemeldet");const opts={method,headers:{Authorization:`Bearer ${token}`,"Accept":"application/json",...headers},cache:"no-store"};if(body!==null){opts.headers["Content-Type"]="application/json";opts.body=JSON.stringify(body);}const r=await fetch(`${this.localApiBase}/${String(path||"").replace(/^\//,"")}`,opts),payload=await r.json().catch(()=>({}));if(!r.ok||payload?.success===false)throw new Error(payload?.error||payload?.message||`HTTP ${r.status}`);return payload;}
+ async rpc(n,d={}){if(n==="shorten_company_timed_action")return this.localRequest("coins/time-reduction",{method:"POST",body:{companyId:Number(d.p_company_id),actionKind:d.p_action_kind,actionId:String(d.p_action_id||""),hours:Number(d.p_hours||1),maxCoins:d.p_max_coins==null?null:Number(d.p_max_coins)}});if(n==="exchange_coins_for_company_money_v2")return this.localRequest("coins/exchange",{method:"POST",body:{tier:d.p_tier,requestId:d.p_request_id}});return this.rest(`rpc/${n}`,{method:"POST",body:JSON.stringify(d)});}
+ async localAccountOverview(){return this.localRequest("account");}
+ async me(){const overview=await this.localAccountOverview(),user=overview?.user;if(!user)throw new Error("Spielerprofil wurde noch nicht angelegt");return user;}
+ async processBusinessFinances(){const result=await this.localRequest("business/process-finances",{method:"POST",body:{}});return{success:true,events:Array.isArray(result?.events)?result.events:[],processedAt:Number(result?.processedAt||0),source:result?.source||"hetzner"};}
+ async accountOverview(){return this.localAccountOverview();}
+ async markTutorialSeen({completed=false}={}){const result=await this.localRequest("tutorial",{method:"POST",body:{completed:!!completed}});if(typeof window!=="undefined"){const patch={tutorial_seen_at:result?.tutorialSeenAt||window.worldCurrentUser?.tutorial_seen_at||new Date().toISOString()};if(result?.tutorialCompletedAt)patch.tutorial_completed_at=result.tutorialCompletedAt;window.worldCurrentUser={...(window.worldCurrentUser||{}),...patch};window.dispatchEvent(new CustomEvent("world:profile-updated",{detail:{user:window.worldCurrentUser}}));}return result;}
  async markTutorialCompleted(){return this.markTutorialSeen({completed:true});}
  async logout(){try{if(this.session?.access_token)await fetch(`${this.baseUrl}/auth/v1/logout`,{method:"POST",headers:this.headers({auth:true})});}finally{this.saveSession(null);this.clearPasswordRecovery();}return{success:true};}async resendVerification(email){const r=await fetch(`${this.baseUrl}/auth/v1/resend`,{method:"POST",headers:this.headers(),body:JSON.stringify({type:"signup",email})});await this.parse(r);return{success:true};}async requestPasswordReset(email){const r=await fetch(`${this.baseUrl}/auth/v1/recover`,{method:"POST",headers:this.headers(),body:JSON.stringify({email})});await this.parse(r);return{success:true};}async resetPassword(_t,password){if(!password||String(password).length<10)throw new Error("Passwort muss mindestens 10 Zeichen haben");const r=await fetch(`${this.baseUrl}/auth/v1/user`,{method:"PUT",headers:this.headers({auth:true}),body:JSON.stringify({password})});await this.parse(r);this.clearPasswordRecovery();return{success:true};}
- async updateProfile(d){const u=await this.me(),a={};if(d.countryCode!==undefined)a.country_code=d.countryCode;if(d.languageCode!==undefined)a.language_code=d.languageCode;if(d.displayName!==undefined)a.display_name=d.displayName;if(d.profileImageUrl!==undefined)a.profile_image_url=d.profileImageUrl;const r=await this.rest(`users?auth_user_id=eq.${encodeURIComponent(u.auth_user_id)}`,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(a)}),user=r?.[0]||null;if(user&&typeof window!=="undefined"){window.worldCurrentUser={...(window.worldCurrentUser||{}),...user};window.dispatchEvent(new CustomEvent("world:profile-updated",{detail:{user:window.worldCurrentUser}}));}return{success:true,user};}
+ async updateProfile(d){const result=await this.localRequest("profile",{method:"PATCH",body:d||{}}),user=result?.user||null;if(user&&typeof window!=="undefined"){window.worldCurrentUser={...(window.worldCurrentUser||{}),...user};window.dispatchEvent(new CustomEvent("world:profile-updated",{detail:{user:window.worldCurrentUser}}));}return{success:true,user,source:result?.source||"hetzner"};}
  async getPremiumStatus(){const u=await this.me();return{success:true,premium:{plan:u.premiumPlan,until:u.premiumUntil,autoRenew:u.premiumAutoRenew,active:Number(u.premiumUntil||0)>Date.now()}};}
  async savePremiumStatus({plan=null,until=0,autoRenew=false}={}){const u=await this.me(),payload={premium_plan:plan||null,premium_until:Number(until)>0?new Date(Number(until)).toISOString():null,premium_auto_renew:!!autoRenew};const r=await this.rest(`users?auth_user_id=eq.${encodeURIComponent(u.auth_user_id)}`,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(payload)}),row=r?.[0]||{};return{success:true,premium:{plan:row.premium_plan||null,until:row.premium_until?new Date(row.premium_until).getTime():0,autoRenew:!!row.premium_auto_renew}};}
- async ensureCompany(d={}){const r=await this.rpc("ensure_player_company",{p_name:d.name||null,p_industry:d.industry||null,p_company_type:d.companyType||d.type||null});return{success:true,company:Array.isArray(r)?r[0]:r};}
- async createBusiness(d={}){const r=await this.rpc("create_player_business",{p_name:d.name||null,p_industry:d.industry||null,p_company_type:d.companyType||d.type||null,p_slot_no:Number(d.slotNo)});return{success:true,company:Array.isArray(r)?r[0]:r};}
- async createPaidBusiness(d={}){const sourceId=d.sourceCompanyId||d.sourceCompany?.serverCompanyId||d.sourceCompany?.id;if(!sourceId)throw new Error("Quellbetrieb für bezahlte Expansion fehlt");const r=await this.rpc("create_player_business_paid",{p_name:d.name||null,p_industry:d.industry||null,p_company_type:d.companyType||d.type||null,p_slot_no:Number(d.slotNo),p_source_company_id:Number(sourceId),p_location_class:d.locationClass||"smallTown",p_property_mode:d.propertyMode==="buy"?"buy":"rent",p_size_level:Math.max(1,Number(d.propertySizeLevel||1))});return{success:true,company:Array.isArray(r)?r[0]:r};}
- async shadowSave(path,payload,expectedRevision,targetCompanyId=null){
-  try{
-   const local=await this.localAccountOverview();
-   const companies=Array.isArray(local?.companies)?local.companies:[];
-   const target=targetCompanyId!=null
-    ? companies.find(c=>String(c?.id)===String(targetCompanyId))
-    : (companies.find(c=>c?.is_primary)||companies[0]);
-   if(!target)return{status:"skipped",reason:"local_company_missing"};
-   const localRevision=Number(target.money_revision??target.game_state?.moneyRevision??0);
-   const expected=Number(expectedRevision??0);
-   if(!Number.isFinite(expected)||localRevision!==expected){
-    console.warn("ORVUNO HETZNER SHADOW-SAVE UEBERSPRUNGEN: Revision weicht ab",{companyId:target.id,localRevision,expectedRevision:expected});
-    return{status:"skipped",reason:"revision_mismatch",localRevision,expectedRevision:expected};
-   }
-   const token=await this.ensureAccessToken();
-   if(!token)return{status:"skipped",reason:"not_authenticated"};
-   const response=await fetch(`${this.localApiBase}/${path}`,{
-    method:"POST",
-    headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json","Accept":"application/json"},
-    body:JSON.stringify(payload),
-    cache:"no-store"
-   });
-   const body=await response.json().catch(()=>({}));
-   if(!response.ok||body?.success===false)throw new Error(body?.error||body?.message||`HTTP ${response.status}`);
-   return{status:"synced",source:body?.source||"hetzner",company:body?.company||null};
-  }catch(error){
-   console.warn("ORVUNO HETZNER SHADOW-SAVE FEHLGESCHLAGEN",error);
-   return{status:"failed",reason:error?.message||String(error)};
-  }
- }
- async saveGameState(s){
-  const state=s||{},expectedRevision=state?.moneyRevision;
-  const r=await this.rpc("save_player_game_state",{p_state:state});
-  const company=Array.isArray(r)?r[0]:r;
-  const shadow=await this.shadowSave("save-game-state",{state},expectedRevision,null);
-  return{success:true,company,shadow};
- }
- async saveBusinessState(id,s){
-  const companyId=Number(id),state=s||{},expectedRevision=state?.moneyRevision;
-  const r=await this.rpc("save_player_business_state",{p_company_id:companyId,p_state:state});
-  const company=Array.isArray(r)?r[0]:r;
-  const shadow=await this.shadowSave("save-business-state",{companyId,state},expectedRevision,companyId);
-  return{success:true,company,shadow};
- }async updateBusinessSetup(id,p,b){const r=await this.rpc("update_player_business_setup",{p_company_id:Number(id),p_setup_phase:p,p_building_state:b||{}});return{success:true,company:Array.isArray(r)?r[0]:r};}
- async transferBusinessMoney(a,b,x){const r=await this.rpc("transfer_business_money",{p_from_company_id:Number(a),p_to_company_id:Number(b),p_amount:Number(x)});return{success:true,balances:Array.isArray(r)?r[0]:r};}async listInternalTransfers(){return this.rest(`business_internal_transfers?select=*&order=created_at.desc&limit=100`);}async listExpansionLoans(){return this.rest(`business_expansion_loans?select=*&order=created_at.desc`);}async takeExpansionLoan(companyId,offer){const r=await this.rpc("take_expansion_loan",{p_company_id:Number(companyId),p_amount:Number(offer.amount),p_annual_rate:Number(offer.annualRate),p_term_months:Number(offer.termMonths),p_monthly_payment:Number(offer.monthlyPayment)});return{success:true,loan:Array.isArray(r)?r[0]:r};}
- async listCoinOrders(){return this.rest("coin_market_orders?status=eq.open&select=*&order=price_per_coin.asc,created_at.asc");}async createCoinSellOrder(a,p){return{success:true,orderId:await this.rpc("create_coin_sell_order",{p_amount:Number(a),p_price_per_coin:Number(p)})};}async cancelCoinSellOrder(id){return{success:true,balance:await this.rpc("cancel_coin_sell_order",{p_order_id:Number(id)})};}async buyCoinOrder(id,a){const r=await this.rpc("buy_coin_market_order",{p_order_id:Number(id),p_amount:Number(a)});window.dispatchEvent(new CustomEvent("world:server-balances-changed",{detail:r}));return{success:true,trade:Array.isArray(r)?r[0]:r};}
+ async ensureCompany(d={}){return this.localRequest("business/ensure",{method:"POST",body:{name:d.name||null,industry:d.industry||null,companyType:d.companyType||d.type||null}});}
+ async createBusiness(d={}){return this.localRequest("business/create",{method:"POST",body:{name:d.name||null,industry:d.industry||null,companyType:d.companyType||d.type||null,slotNo:Number(d.slotNo)}});}
+ async createPaidBusiness(d={}){const sourceId=d.sourceCompanyId||d.sourceCompany?.serverCompanyId||d.sourceCompany?.id;if(!sourceId)throw new Error("Quellbetrieb für bezahlte Expansion fehlt");return this.localRequest("business/create-paid",{method:"POST",body:{name:d.name||null,industry:d.industry||null,companyType:d.companyType||d.type||null,slotNo:Number(d.slotNo),sourceCompanyId:Number(sourceId),locationClass:d.locationClass||"smallTown",propertyMode:d.propertyMode==="buy"?"buy":"rent",propertySizeLevel:Math.max(1,Number(d.propertySizeLevel||1))}});}
+ async saveGameState(s){return this.localRequest("save-game-state",{method:"POST",body:{state:s||{}}});}
+ async saveBusinessState(id,s){return this.localRequest("save-business-state",{method:"POST",body:{companyId:Number(id),state:s||{}}});}
+ async updateBusinessSetup(id,p,b){return this.localRequest("business/setup",{method:"POST",body:{companyId:Number(id),setupPhase:p,buildingState:b||{}}});}
+ async transferBusinessMoney(a,b,x){return this.localRequest("business/transfer",{method:"POST",body:{fromCompanyId:Number(a),toCompanyId:Number(b),amount:Number(x)}});}
+ async listInternalTransfers(){const result=await this.localRequest("business/transfers");return result?.rows||[];}
+ async listExpansionLoans(){const result=await this.localRequest("business/loans");return result?.rows||[];}
+ async takeExpansionLoan(companyId,offer){const result=await this.localRequest("business/loan",{method:"POST",body:{companyId:Number(companyId),amount:Number(offer.amount),termMonths:Number(offer.termMonths)}});return{success:true,loan:result?.loan||result};}
+ async listCoinOrders(){const result=await this.localRequest("coins/orders");return result?.rows||[];}
+ async createCoinSellOrder(a,p){const result=await this.localRequest("coins/order/create",{method:"POST",body:{amount:Number(a),pricePerCoin:Number(p)}});return{success:true,orderId:result?.orderId};}
+ async cancelCoinSellOrder(id){const result=await this.localRequest("coins/order/cancel",{method:"POST",body:{orderId:Number(id)}});return{success:true,balance:result?.balance};}
+ async buyCoinOrder(id,a){const result=await this.localRequest("coins/order/buy",{method:"POST",body:{orderId:Number(id),amount:Number(a)}});if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("world:server-balances-changed",{detail:result}));return{success:true,trade:result?.trade||result};}
+
 }
