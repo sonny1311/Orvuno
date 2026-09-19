@@ -718,7 +718,7 @@ create or replace function orvuno_api.jsonb_time_ms(p_value jsonb)
 returns bigint
 language plpgsql
 set search_path = ''
-as $
+as $$
 declare v_text text;
 begin
   if p_value is null or p_value='null'::jsonb then return null; end if;
@@ -734,7 +734,7 @@ begin
     end;
   end;
 end;
-$;
+$$;
 
 create or replace function orvuno_api.exchange_coins_for_company_money_v2(
   p_user_id bigint,
@@ -745,7 +745,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_user_id bigint; v_cost bigint; v_credit numeric; v_balance bigint;
   v_money numeric; v_revision bigint; v_company_id bigint;
@@ -876,7 +876,7 @@ begin
     'transactionId',v_ledger_id,'requestId',p_request_id,'replayed',false
   );
 end;
-$;
+$$;
 
 create or replace function orvuno_api.shorten_company_timed_action(
   p_user_id bigint,
@@ -890,7 +890,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_user_id bigint; v_game_state jsonb; v_building_state jsonb; v_doc jsonb;
   v_paths jsonb; v_spec jsonb; v_source text; v_path text[]; v_nested text[];
@@ -1097,7 +1097,7 @@ grant execute on all functions in schema orvuno_api to orvuno_app;
     'actionId',p_action_id
   );
 end;
-$;
+$$;
 
 revoke all on schema orvuno_api from public;
 grant usage on schema orvuno_api to orvuno_app;
