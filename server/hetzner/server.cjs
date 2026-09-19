@@ -54,7 +54,12 @@ async function requireActiveGameUser(client, authId) {
 async function withUser(req, fn) {
   const client = await pool.connect();
   try {
+    const header = String(req.headers.authorization || "");
+    const match = header.match(/^Bearer\\s+(.+)$/i);
+    if (!match) throw httpError(401, "Nicht angemeldet");
+
     const auth = await getAuthUser(req);
+    await syncEntitlementsFromSupabase(client, auth.id, match[1]);
     const gameUser = await requireActiveGameUser(client, auth.id);
     return await fn({ client, auth, gameUser });
   } finally {
@@ -101,6 +106,66 @@ app.get("/api/orvuno/health", async (_req, res) => {
     sendError(res, error);
   }
 });
+
+async function fetchSupabaseProfileAndWallet(authId, token) {
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json"
+  };
+
+  const profileRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/users?auth_user_id=eq.${encodeURIComponent(authId)}&select=*`,
+    { headers, cache: "no-store" }
+  );
+  if (!profileRes.ok) throw httpError(502, "Supabase-Profil konnte nicht geladen werden");
+  const profiles = await profileRes.json();
+  const profile = Array.isArray(profiles) ? profiles[0] : null;
+  if (!profile) throw httpError(403, "Spielerprofil wurde noch nicht angelegt");
+
+  const walletRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/coin_wallets?user_id=eq.${encodeURIComponent(profile.id)}&select=balance&limit=1`,
+    { headers, cache: "no-store" }
+  );
+  if (!walletRes.ok) throw httpError(502, "Supabase-Coin-Wallet konnte nicht geladen werden");
+  const wallets = await walletRes.json();
+  const coinBalance = Number((Array.isArray(wallets) ? wallets[0]?.balance : 0) || 0);
+
+  return { profile, coinBalance };
+}
+
+async function syncEntitlementsFromSupabase(client, authId, token) {
+  const { profile, coinBalance } = await fetchSupabaseProfileAndWallet(authId, token);
+
+  let localUser = await client.query(
+    "select id from public.users where auth_user_id=$1 limit 1",
+    [authId]
+  );
+
+  if (!localUser.rows[0]) {
+    const boot = await client.query(
+      "select orvuno_api.bootstrap_user_from_supabase($1::jsonb,$2) as id",
+      [JSON.stringify(profile), coinBalance]
+    );
+    localUser = { rows: [{ id: boot.rows[0].id }] };
+  }
+
+  const userId = Number(localUser.rows[0].id);
+  await client.query(
+    "select orvuno_api.apply_supabase_entitlements($1,$2,$3,$4,$5,$6,$7) as result",
+    [
+      userId,
+      coinBalance,
+      profile.premium_plan || null,
+      profile.premium_until || null,
+      !!profile.premium_auto_renew,
+      profile.status || null,
+      profile.deleted_at || null
+    ]
+  );
+
+  return userId;
+}
 
 app.get("/api/orvuno/account", async (req, res) => {
   try {
