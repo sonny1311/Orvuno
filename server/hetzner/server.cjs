@@ -335,11 +335,16 @@ app.post("/api/orvuno/business/process-finances", async (req, res) => {
   }
 });
 
-app.post("/api/orvuno/business/transfer", async (_req, res) => {
-  res.status(409).json({
-    success: false,
-    error: "Alle eigenen Betriebe verwenden dasselbe Firmenkonto; ein Geldtransfer zwischen eigenen Betrieben ist nicht erforderlich"
-  });
+app.post("/api/orvuno/business/transfer", async (req, res) => {
+  try {
+    await withUser(req, async () => true);
+    res.status(409).json({
+      success: false,
+      error: "Alle eigenen Betriebe verwenden dasselbe Firmenkonto; ein Geldtransfer zwischen eigenen Betrieben ist nicht erforderlich"
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.get("/api/orvuno/business/transfers", async (req, res) => {
@@ -407,18 +412,28 @@ app.get("/api/orvuno/coins/orders", async (req, res) => {
   }
 });
 
-app.post("/api/orvuno/coins/order/create", (_req, res) => {
-  res.status(409).json({
-    success: false,
-    error: "Coin-Spielermarkt ist bis zur serverautoritativen Wirtschaft deaktiviert"
-  });
+app.post("/api/orvuno/coins/order/create", async (req, res) => {
+  try {
+    await withUser(req, async () => true);
+    res.status(409).json({
+      success: false,
+      error: "Coin-Spielermarkt ist bis zur serverautoritativen Wirtschaft deaktiviert"
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post("/api/orvuno/coins/order/buy", (_req, res) => {
-  res.status(409).json({
-    success: false,
-    error: "Coin-Spielermarkt ist bis zur serverautoritativen Wirtschaft deaktiviert"
-  });
+app.post("/api/orvuno/coins/order/buy", async (req, res) => {
+  try {
+    await withUser(req, async () => true);
+    res.status(409).json({
+      success: false,
+      error: "Coin-Spielermarkt ist bis zur serverautoritativen Wirtschaft deaktiviert"
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.post("/api/orvuno/coins/order/cancel", async (req, res) => {
