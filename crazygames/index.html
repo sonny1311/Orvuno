@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07101d">
   <title>ORVUNO</title>
-  <link rel="preconnect" href="https://orvuno-worldproject.vercel.app" crossorigin>
-  <link rel="dns-prefetch" href="https://orvuno-worldproject.vercel.app">
+  <link rel="preconnect" href="https://www.orvuno.de" crossorigin>
+  <link rel="dns-prefetch" href="https://www.orvuno.de">
   <link rel="preconnect" href="https://sdk.crazygames.com" crossorigin>
   <link rel="dns-prefetch" href="https://sdk.crazygames.com">
   <style>
@@ -23,7 +23,7 @@
     const frame=document.getElementById('game'),loading=document.getElementById('loading');
     let sdkReady=false,frameStarted=false,frameReady=false,reloadedForProgress=false;
     const gameUrl=gameId=>{
-      const url=new URL('https://orvuno-worldproject.vercel.app/');
+      const url=new URL('https://www.orvuno.de/');
       url.searchParams.set('source','crazygames');
       url.searchParams.set('crazygames','1');
       if(gameId)url.searchParams.set('cg_game_id',gameId);
