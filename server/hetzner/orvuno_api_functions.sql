@@ -883,221 +883,230 @@ create or replace function orvuno_api.shorten_company_timed_action(
   p_company_id bigint,
   p_action_kind text,
   p_action_id text,
-  p_hours integer default 1,
-  p_max_coins integer default null
+  p_hours integer DEFAULT 1,
+  p_max_coins integer DEFAULT NULL
 )
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_user_id bigint; v_game_state jsonb; v_building_state jsonb; v_doc jsonb;
-  v_paths jsonb; v_spec jsonb; v_source text; v_path text[]; v_nested text[];
-  v_list jsonb; v_parent jsonb; v_item jsonb; v_nested_item jsonb; v_index bigint;
-  v_target_path text[]; v_end_keys text[]; v_end_key text; v_value jsonb;
-  v_ms bigint; v_end_ms bigint;
-  v_now_ms bigint:=floor(extract(epoch from clock_timestamp())*1000)::bigint;
-  v_requested_ms bigint; v_remaining_ms bigint; v_reduction_ms bigint;
-  v_cost integer; v_balance bigint; v_new_balance bigint; v_new_end_ms bigint; v_status text;
-begin
-  v_user_id:=orvuno_api.require_active_user(p_user_id);
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+  v_user_id bigint;
+  v_game_state jsonb;
+  v_building_state jsonb;
+  v_doc jsonb;
+  v_paths jsonb;
+  v_spec jsonb;
+  v_source text;
+  v_path text[];
+  v_nested text[];
+  v_list jsonb;
+  v_parent jsonb;
+  v_item jsonb;
+  v_nested_item jsonb;
+  v_index bigint;
+  v_target_path text[];
+  v_end_keys text[];
+  v_end_key text;
+  v_value jsonb;
+  v_ms bigint;
+  v_end_ms bigint;
+  v_now_ms bigint := floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint;
+  v_requested_ms bigint;
+  v_remaining_ms bigint;
+  v_reduction_ms bigint;
+  v_cost integer;
+  v_balance bigint;
+  v_new_balance bigint;
+  v_new_end_ms bigint;
+  v_status text;
+BEGIN
+  v_user_id := orvuno_api.require_active_user(p_user_id);
 
-  if p_company_id is null or p_action_id is null or btrim(p_action_id)='' then
-    raise exception 'Ungueltiger Vorgang';
-  end if;
-  if p_hours is null or p_hours<1 or p_hours>87600 then
-    raise exception 'Ungueltige Zeitverkuerzung';
-  end if;
-  if p_max_coins is not null and (p_max_coins<1 or p_max_coins>1000000) then
-    raise exception 'Ungueltiges Coin-Limit';
-  end if;
+  IF p_company_id IS NULL OR p_action_id IS NULL OR btrim(p_action_id) = '' THEN
+    RAISE EXCEPTION 'Ungueltiger Vorgang';
+  END IF;
+  IF p_hours IS NULL OR p_hours < 1 OR p_hours > 87600 THEN
+    RAISE EXCEPTION 'Ungueltige Zeitverkuerzung';
+  END IF;
+  IF p_max_coins IS NOT NULL AND (p_max_coins < 1 OR p_max_coins > 1000000) THEN
+    RAISE EXCEPTION 'Ungueltiges Coin-Limit';
+  END IF;
 
-  v_paths:=case p_action_kind
-    when 'production' then '[{"source":"game","path":["productionJobs"]},{"source":"game","path":["productionQueue"]},{"source":"game","path":["operationalSupplyState","productionQueue"]}]'::jsonb
-    when 'delivery' then '[{"source":"game","path":["operationalSupplyState","orders"]},{"source":"game","path":["supplierOrders"]},{"source":"game","path":["marketDeliveries"]},{"source":"game","path":["constructionSite","deliveries"]}]'::jsonb
-    when 'construction' then '[{"source":"game","path":["constructionSite","jobs"]}]'::jsonb
-    when 'land' then '[{"source":"game","path":["constructionSite","jobs"]}]'::jsonb
-    when 'warehouse_expansion' then '[{"source":"game","path":["warehouseExpansion","jobs"]}]'::jsonb
-    when 'machine_upgrade' then '[{"source":"game","path":["machineUpgradeJobs"]},{"source":"building","path":["equipment"]}]'::jsonb
-    when 'business_upgrade' then '[{"source":"game","path":["upgradeJobs"]}]'::jsonb
-    when 'equipment' then '[{"source":"building","path":["equipment"]}]'::jsonb
-    when 'maintenance' then '[{"source":"building","path":["equipment"],"nested":["maintenanceJob"]},{"source":"game","path":["productionMachines"],"nested":["maintenanceJob"]},{"source":"game","path":["machines"],"nested":["maintenanceJob"]},{"source":"game","path":["workforceState","machines"],"nested":["maintenanceJob"]},{"source":"game","path":["workforceOperationsState","machines"],"nested":["maintenanceJob"]}]'::jsonb
-    when 'crew_arrival' then '[{"source":"game","path":["warehouseExpansion","crewBookings"]}]'::jsonb
-    else null
-  end;
+  v_paths := CASE p_action_kind
+    WHEN 'production' THEN '[{"source":"game","path":["productionJobs"]},{"source":"game","path":["productionQueue"]},{"source":"game","path":["operationalSupplyState","productionQueue"]}]'::jsonb
+    WHEN 'delivery' THEN '[{"source":"game","path":["operationalSupplyState","orders"]},{"source":"game","path":["supplierOrders"]},{"source":"game","path":["marketDeliveries"]},{"source":"game","path":["constructionSite","deliveries"]}]'::jsonb
+    WHEN 'construction' THEN '[{"source":"game","path":["constructionSite","jobs"]}]'::jsonb
+    WHEN 'land' THEN '[{"source":"game","path":["constructionSite","jobs"]}]'::jsonb
+    WHEN 'warehouse_expansion' THEN '[{"source":"game","path":["warehouseExpansion","jobs"]}]'::jsonb
+    WHEN 'machine_upgrade' THEN '[{"source":"game","path":["machineUpgradeJobs"]},{"source":"building","path":["equipment"]}]'::jsonb
+    WHEN 'business_upgrade' THEN '[{"source":"game","path":["upgradeJobs"]}]'::jsonb
+    WHEN 'equipment' THEN '[{"source":"building","path":["equipment"]}]'::jsonb
+    WHEN 'maintenance' THEN '[{"source":"building","path":["equipment"],"nested":["maintenanceJob"]},{"source":"game","path":["productionMachines"],"nested":["maintenanceJob"]},{"source":"game","path":["machines"],"nested":["maintenanceJob"]},{"source":"game","path":["workforceState","machines"],"nested":["maintenanceJob"]},{"source":"game","path":["workforceOperationsState","machines"],"nested":["maintenanceJob"]}]'::jsonb
+    WHEN 'crew_arrival' THEN '[{"source":"game","path":["warehouseExpansion","crewBookings"]}]'::jsonb
+    ELSE NULL
+  END;
+  IF v_paths IS NULL THEN
+    RAISE EXCEPTION 'Dieser Vorgang kann nicht mit Coins beschleunigt werden';
+  END IF;
 
-  if v_paths is null then raise exception 'Dieser Vorgang kann nicht mit Coins beschleunigt werden'; end if;
+  SELECT coalesce(game_state, '{}'::jsonb), coalesce(building_state, '{}'::jsonb)
+    INTO v_game_state, v_building_state
+  FROM public.companies
+  WHERE id = p_company_id AND user_id = v_user_id AND closed_at IS NULL
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Betrieb nicht gefunden oder keine Berechtigung'; END IF;
 
-  select coalesce(game_state,'{}'::jsonb),coalesce(building_state,'{}'::jsonb)
-  into v_game_state,v_building_state
-  from public.companies
-  where id=p_company_id and user_id=v_user_id and closed_at is null
-  for update;
+  FOR v_spec IN SELECT value FROM jsonb_array_elements(v_paths)
+  LOOP
+    v_source := v_spec->>'source';
+    SELECT array_agg(value ORDER BY ordinality) INTO v_path
+    FROM jsonb_array_elements_text(v_spec->'path') WITH ORDINALITY;
+    IF v_spec ? 'nested' THEN
+      SELECT array_agg(value ORDER BY ordinality) INTO v_nested
+      FROM jsonb_array_elements_text(v_spec->'nested') WITH ORDINALITY;
+    ELSE
+      v_nested := ARRAY[]::text[];
+    END IF;
 
-  if not found then raise exception 'Betrieb nicht gefunden oder keine Berechtigung'; end if;
+    v_doc := CASE WHEN v_source = 'building' THEN v_building_state ELSE v_game_state END;
+    v_list := v_doc #> v_path;
+    IF jsonb_typeof(v_list) <> 'array' THEN CONTINUE; END IF;
 
-  for v_spec in select value from jsonb_array_elements(v_paths)
-  loop
-    v_source:=v_spec->>'source';
-    select array_agg(value order by ordinality) into v_path
-    from jsonb_array_elements_text(v_spec->'path') with ordinality;
+    FOR v_parent, v_index IN
+      SELECT value, ordinality - 1 FROM jsonb_array_elements(v_list) WITH ORDINALITY
+    LOOP
+      v_nested_item := CASE WHEN cardinality(v_nested) > 0 THEN v_parent #> v_nested ELSE NULL END;
+      IF coalesce(v_parent->>'id', v_parent->>'instanceId', '') = p_action_id
+         OR coalesce(v_nested_item->>'id', v_nested_item->>'instanceId', '') = p_action_id THEN
+        v_target_path := v_path || (v_index::text) || v_nested;
+        v_item := v_doc #> v_target_path;
+        EXIT;
+      END IF;
+    END LOOP;
+    EXIT WHEN v_target_path IS NOT NULL;
+  END LOOP;
 
-    if v_spec ? 'nested' then
-      select array_agg(value order by ordinality) into v_nested
-      from jsonb_array_elements_text(v_spec->'nested') with ordinality;
-    else
-      v_nested:=array[]::text[];
-    end if;
+  IF v_target_path IS NULL OR v_item IS NULL THEN RAISE EXCEPTION 'Vorgang nicht gefunden'; END IF;
 
-    v_doc:=case when v_source='building' then v_building_state else v_game_state end;
-    v_list:=v_doc #> v_path;
-    if jsonb_typeof(v_list)<>'array' then continue; end if;
+  v_status := lower(coalesce(v_item->>'status', ''));
+  IF v_status IN ('finished','completed','cancelled','admin_cancelled','delivered','received','stored','sold','closed') THEN
+    RAISE EXCEPTION 'Vorgang ist bereits beendet';
+  END IF;
 
-    for v_parent,v_index in
-      select value,ordinality-1 from jsonb_array_elements(v_list) with ordinality
-    loop
-      v_nested_item:=case when cardinality(v_nested)>0 then v_parent #> v_nested else null end;
+  IF p_action_kind = 'equipment' OR (p_action_kind = 'machine_upgrade' AND v_source = 'building') THEN
+    IF lower(coalesce(v_item->>'status','')) = 'upgrading' THEN
+      v_end_keys := ARRAY['upgradeFinishAt','finishAt','busyUntil','installationFinishAt'];
+    ELSE
+      v_end_keys := ARRAY['installationFinishAt','finishAt','busyUntil','upgradeFinishAt'];
+    END IF;
+  ELSIF p_action_kind = 'maintenance' THEN
+    v_end_keys := ARRAY['completeAt','finishAt','endsAt'];
+  ELSIF p_action_kind = 'crew_arrival' THEN
+    v_end_keys := ARRAY['availableAt','arrivalAt','arrivesAt','eta'];
+  ELSE
+    v_end_keys := ARRAY['finishAt','completeAt','arrivalAt','arrivalTime','arriveAt','arrivesAt','deliveryAt','trafficEta','eta','endsAt','expectedAt','readyAt','availableAt','installationFinishAt','upgradeFinishAt','busyUntil'];
+  END IF;
 
-      if coalesce(v_parent->>'id',v_parent->>'instanceId','')=p_action_id
-         or coalesce(v_nested_item->>'id',v_nested_item->>'instanceId','')=p_action_id then
-        v_target_path:=v_path||(v_index::text)||v_nested;
-        v_item:=v_doc #> v_target_path;
-        exit;
-      end if;
-    end loop;
+  FOREACH v_end_key IN ARRAY v_end_keys
+  LOOP
+    v_ms := orvuno_api.jsonb_time_ms(v_item->v_end_key);
+    IF v_ms IS NOT NULL AND v_ms > 0 THEN
+      v_end_ms := v_ms;
+      EXIT;
+    END IF;
+  END LOOP;
 
-    exit when v_target_path is not null;
-  end loop;
+  IF v_end_ms IS NULL THEN RAISE EXCEPTION 'Vorgang besitzt keine gueltige Endzeit'; END IF;
+  v_remaining_ms := greatest(0, v_end_ms - v_now_ms);
+  IF v_remaining_ms <= 0 THEN RAISE EXCEPTION 'Vorgang ist bereits beendet'; END IF;
 
-  if v_target_path is null or v_item is null then raise exception 'Vorgang nicht gefunden'; end if;
+  v_requested_ms := p_hours::bigint * 3600000;
+  IF p_max_coins IS NOT NULL THEN
+    v_requested_ms := least(v_requested_ms, p_max_coins::bigint * 300000);
+  END IF;
+  v_reduction_ms := least(v_requested_ms, v_remaining_ms);
+  IF v_reduction_ms <= 0 THEN RAISE EXCEPTION 'Ungueltige Zeitverkuerzung'; END IF;
 
-  v_status:=lower(coalesce(v_item->>'status',''));
-  if v_status in ('finished','completed','cancelled','admin_cancelled','delivered','received','stored','sold','closed') then
-    raise exception 'Vorgang ist bereits beendet';
-  end if;
+  -- Verbindliche ORVUNO-Regel: 1 Coin je angefangene 5 Minuten der wirklich verkuerzten Zeit.
+  v_cost := greatest(1, ceil(v_reduction_ms::numeric / 300000)::integer);
+  IF p_max_coins IS NOT NULL AND v_cost > p_max_coins THEN
+    RAISE EXCEPTION 'Coin-Limit ueberschritten';
+  END IF;
 
-  if p_action_kind='equipment' or (p_action_kind='machine_upgrade' and v_source='building') then
-    if lower(coalesce(v_item->>'status',''))='upgrading' then
-      v_end_keys:=array['upgradeFinishAt','finishAt','busyUntil','installationFinishAt'];
-    else
-      v_end_keys:=array['installationFinishAt','finishAt','busyUntil','upgradeFinishAt'];
-    end if;
-  elsif p_action_kind='maintenance' then
-    v_end_keys:=array['completeAt','finishAt','endsAt'];
-  elsif p_action_kind='crew_arrival' then
-    v_end_keys:=array['availableAt','arrivalAt','arrivesAt','eta'];
-  else
-    v_end_keys:=array[
-      'finishAt','completeAt','arrivalAt','arrivalTime','arriveAt','arrivesAt',
-      'deliveryAt','trafficEta','eta','endsAt','expectedAt','readyAt','availableAt',
-      'installationFinishAt','upgradeFinishAt','busyUntil'
-    ];
-  end if;
+  SELECT balance INTO v_balance
+  FROM public.coin_wallets
+  WHERE user_id = v_user_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Coin-Wallet nicht gefunden'; END IF;
+  IF v_balance < v_cost THEN RAISE EXCEPTION 'Nicht genug Coins'; END IF;
+  v_new_balance := v_balance - v_cost;
 
-  foreach v_end_key in array v_end_keys
-  loop
-    v_ms:=orvuno_api.jsonb_time_ms(v_item->v_end_key);
-    if v_ms is not null and v_ms>0 then v_end_ms:=v_ms; exit; end if;
-  end loop;
+  -- Alle noch in der Zukunft liegenden Endzeitfelder desselben Vorgangs gemeinsam verschieben.
+  FOREACH v_end_key IN ARRAY v_end_keys
+  LOOP
+    v_value := v_item->v_end_key;
+    v_ms := orvuno_api.jsonb_time_ms(v_value);
+    IF v_ms IS NULL OR v_ms <= v_now_ms THEN CONTINUE; END IF;
+    v_new_end_ms := greatest(v_now_ms, v_ms - v_reduction_ms);
+    IF jsonb_typeof(v_value) = 'number' THEN
+      v_doc := jsonb_set(v_doc, v_target_path || v_end_key, to_jsonb(v_new_end_ms), false);
+    ELSIF (v_value #>> '{}') ~ '^[0-9]+$' THEN
+      v_doc := jsonb_set(v_doc, v_target_path || v_end_key, to_jsonb(v_new_end_ms::text), false);
+    ELSE
+      v_doc := jsonb_set(v_doc, v_target_path || v_end_key,
+        to_jsonb(to_char(to_timestamp(v_new_end_ms / 1000.0) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')), false);
+    END IF;
+  END LOOP;
 
-  if v_end_ms is null then raise exception 'Vorgang besitzt keine gueltige Endzeit'; end if;
+  UPDATE public.coin_wallets
+  SET balance = v_new_balance, updated_at = now()
+  WHERE user_id = v_user_id;
 
-  v_remaining_ms:=greatest(0,v_end_ms-v_now_ms);
-  if v_remaining_ms<=0 then raise exception 'Vorgang ist bereits beendet'; end if;
-
-  v_requested_ms:=p_hours::bigint*3600000;
-  if p_max_coins is not null then
-    v_requested_ms:=least(v_requested_ms,p_max_coins::bigint*300000);
-  end if;
-
-  v_reduction_ms:=least(v_requested_ms,v_remaining_ms);
-  if v_reduction_ms<=0 then raise exception 'Ungueltige Zeitverkuerzung'; end if;
-
-  v_cost:=greatest(1,ceil(v_reduction_ms::numeric/300000)::integer);
-  if p_max_coins is not null and v_cost>p_max_coins then raise exception 'Coin-Limit ueberschritten'; end if;
-
-  select balance into v_balance
-  from public.coin_wallets
-  where user_id=v_user_id
-  for update;
-
-  if not found then raise exception 'Coin-Wallet nicht gefunden'; end if;
-  if v_balance<v_cost then raise exception 'Nicht genug Coins'; end if;
-
-  v_new_balance:=v_balance-v_cost;
-
-  foreach v_end_key in array v_end_keys
-  loop
-    v_value:=v_item->v_end_key;
-    v_ms:=orvuno_api.jsonb_time_ms(v_value);
-    if v_ms is null or v_ms<=v_now_ms then continue; end if;
-
-    v_new_end_ms:=greatest(v_now_ms,v_ms-v_reduction_ms);
-
-    if jsonb_typeof(v_value)='number' then
-      v_doc:=jsonb_set(v_doc,v_target_path||v_end_key,to_jsonb(v_new_end_ms),false);
-    elsif (v_value #>> '{}') ~ '^[0-9]+
-grant usage on schema orvuno_api to orvuno_app;
-
-revoke all on all functions in schema orvuno_api from public;
-grant execute on all functions in schema orvuno_api to orvuno_app;
- then
-      v_doc:=jsonb_set(v_doc,v_target_path||v_end_key,to_jsonb(v_new_end_ms::text),false);
-    else
-      v_doc:=jsonb_set(
-        v_doc,v_target_path||v_end_key,
-        to_jsonb(to_char(to_timestamp(v_new_end_ms/1000.0) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
-        false
-      );
-    end if;
-  end loop;
-
-  update public.coin_wallets
-  set balance=v_new_balance,updated_at=now()
-  where user_id=v_user_id;
-
-  insert into public.coin_transactions(
-    user_id,amount,balance_after,transaction_type,reference_type,reference_id,note
-  )
-  values(
-    v_user_id,-v_cost,v_new_balance,'time_reduction',p_action_kind,p_action_id,
-    format('%s Coin(s) fuer %s Minuten Zeitverkuerzung (frei gewaehlt; 1 Coin je angefangene 5 Minuten)',
-      v_cost,ceil(v_reduction_ms/60000.0))
+  INSERT INTO public.coin_transactions(user_id, amount, balance_after, transaction_type, reference_type, reference_id, note)
+  VALUES(
+    v_user_id,
+    -v_cost,
+    v_new_balance,
+    'time_reduction',
+    p_action_kind,
+    p_action_id,
+    format('%s Coin(s) fuer %s Minuten Zeitverkuerzung (frei gewaehlt; 1 Coin je angefangene 5 Minuten)', v_cost, ceil(v_reduction_ms / 60000.0))
   );
 
-  if v_source='building' then
-    v_building_state:=v_doc;
-    update public.companies set building_state=v_building_state,saved_at=now() where id=p_company_id;
-  else
-    v_game_state:=v_doc;
-    update public.companies set game_state=v_game_state,saved_at=now() where id=p_company_id;
-  end if;
+  IF v_source = 'building' THEN
+    v_building_state := v_doc;
+    UPDATE public.companies SET building_state = v_building_state, saved_at = now() WHERE id = p_company_id;
+  ELSE
+    v_game_state := v_doc;
+    UPDATE public.companies SET game_state = v_game_state, saved_at = now() WHERE id = p_company_id;
+  END IF;
 
-  v_item:=v_doc #> v_target_path;
-  v_new_end_ms:=null;
+  v_item := v_doc #> v_target_path;
+  v_new_end_ms := NULL;
+  FOREACH v_end_key IN ARRAY v_end_keys
+  LOOP
+    v_new_end_ms := orvuno_api.jsonb_time_ms(v_item->v_end_key);
+    EXIT WHEN v_new_end_ms IS NOT NULL AND v_new_end_ms > 0;
+  END LOOP;
 
-  foreach v_end_key in array v_end_keys
-  loop
-    v_new_end_ms:=orvuno_api.jsonb_time_ms(v_item->v_end_key);
-    exit when v_new_end_ms is not null and v_new_end_ms>0;
-  end loop;
-
-  return jsonb_build_object(
-    'success',true,
-    'costCoins',v_cost,
-    'requestedCoinBudget',p_max_coins,
-    'reducedMs',v_reduction_ms,
-    'reducedMinutes',ceil(v_reduction_ms/60000.0),
-    'priceUnitMinutes',5,
-    'coinsPerUnit',1,
-    'newEndMs',v_new_end_ms,
-    'newBalance',v_new_balance,
-    'kind',p_action_kind,
-    'actionId',p_action_id
+  RETURN jsonb_build_object(
+    'success', true,
+    'costCoins', v_cost,
+    'requestedCoinBudget', p_max_coins,
+    'reducedMs', v_reduction_ms,
+    'reducedMinutes', ceil(v_reduction_ms / 60000.0),
+    'priceUnitMinutes', 5,
+    'coinsPerUnit', 1,
+    'newEndMs', v_new_end_ms,
+    'newBalance', v_new_balance,
+    'kind', p_action_kind,
+    'actionId', p_action_id
   );
-end;
+END;
 $$;
+
 
 revoke all on schema orvuno_api from public;
 grant usage on schema orvuno_api to orvuno_app;
