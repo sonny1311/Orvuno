@@ -4,8 +4,8 @@ Feste Daten für die Android-Version:
 
 - App-Name: ORVUNO
 - Paketname / Application ID: `de.nadena.orvuno`
-- Web-Basis: `https://orvuno-worldproject.vercel.app/`
-- Manifest: `https://orvuno-worldproject.vercel.app/manifest.webmanifest`
+- Web-Basis: `https://www.orvuno.de/`
+- Manifest: `https://www.orvuno.de/manifest.webmanifest`
 - Nächstes Update: `1.0.1`
 - Nächster Version Code: `2`
 - Release-Kanal: Google Play – geschlossener Test
@@ -15,7 +15,7 @@ Feste Daten für die Android-Version:
 
 Der Google-Play-Wrapper soll die Store-Zuordnung explizit in der Start-URL tragen:
 
-`https://orvuno-worldproject.vercel.app/?source=app&orvuno_app=android&orvuno_store=google`
+`https://www.orvuno.de/?source=app&orvuno_app=android&orvuno_store=google`
 
 Damit kann die Web-App den Google-Play-Kontext eindeutig von der normalen Website unterscheiden. Zusätzlich erkennt die App ältere TWA-Builds über Android-Referrer bzw. `source=app` im Standalone-Modus. Ein normaler Browserbesuch bleibt immer Web-Kontext und darf nicht durch einen zuvor gespeicherten Store-Marker umgeschaltet werden.
 
@@ -29,7 +29,7 @@ Initialisierung bzw. Aktualisierung erfolgt mit Bubblewrap gegen das ORVUNO-Mani
 - Package ID: `de.nadena.orvuno`
 - Version name: `1.0.1`
 - Version code: `2`
-- Host: `orvuno-worldproject.vercel.app`
+- Host: `www.orvuno.de`
 - Start URL: `/?source=app&orvuno_app=android&orvuno_store=google`
 - Play Billing: aktiviert
 
@@ -74,7 +74,7 @@ Der Backend-Pfad verifiziert jeden `purchaseToken` über die Google Play Develop
 
 Die TWA-Verifikation erfolgt über:
 
-`https://orvuno-worldproject.vercel.app/.well-known/assetlinks.json`
+`https://www.orvuno.de/.well-known/assetlinks.json`
 
 Der Arbeitsstand erzeugt diese Antwort aus `GOOGLE_PLAY_APP_SIGNING_SHA256`. Es muss der **SHA-256-Fingerprint des App-Signing-Zertifikats aus Google Play Console → App-Integrität** verwendet werden, nicht ein erfundener Wert und nicht versehentlich nur der lokale Upload-Key.
 
