@@ -451,6 +451,46 @@ app.post("/api/orvuno/coins/order/cancel", async (req, res) => {
   }
 });
 
+
+app.post("/api/orvuno/coins/exchange", async (req, res) => {
+  try {
+    const d = req.body || {};
+    const out = await withUser(req, async ({ client, gameUser }) => {
+      const r = await client.query(
+        "select orvuno_api.exchange_coins_for_company_money_v2($1,$2,$3) as result",
+        [gameUser.id, String(d.tier || ""), String(d.requestId || "")]
+      );
+      return { ...r.rows[0].result, source: "hetzner" };
+    });
+    res.json(out);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post("/api/orvuno/coins/time-reduction", async (req, res) => {
+  try {
+    const d = req.body || {};
+    const out = await withUser(req, async ({ client, gameUser }) => {
+      const r = await client.query(
+        "select orvuno_api.shorten_company_timed_action($1,$2,$3,$4,$5,$6) as result",
+        [
+          gameUser.id,
+          Number(d.companyId),
+          String(d.actionKind || ""),
+          String(d.actionId || ""),
+          Math.max(1, Number(d.hours || 1)),
+          d.maxCoins == null ? null : Number(d.maxCoins)
+        ]
+      );
+      return { ...r.rows[0].result, source: "hetzner" };
+    });
+    res.json(out);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Orvuno API listening on 127.0.0.1:${PORT}`);
 });
