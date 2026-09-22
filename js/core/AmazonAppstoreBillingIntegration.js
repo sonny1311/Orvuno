@@ -25,6 +25,7 @@ function requireBridge(){
   return bridge;
 }
 async function refreshAccount(){
+  try{await authApi()?.syncLocalEntitlements?.();}catch{}
   try{await window.worldAccounts?.gameStateSync?.refreshBalances?.();}catch{}
   try{await window.worldAccounts?.premiumLifecycle?.refreshAccount?.(authApi());}catch{}
   window.dispatchEvent(new CustomEvent('world:amazon-iap-updated'));
