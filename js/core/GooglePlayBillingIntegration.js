@@ -11,7 +11,7 @@ let autoRestoreTimer=null;
 let autoRestoreAttempts=0;
 
 function api(){const a=window.worldAccounts?.authApi;if(!a)throw new Error('Google Play Billing ist noch nicht bereit');return a;}
-async function edge(action,data={}){const a=api(),token=await a.ensureAccessToken();if(!token)throw new Error('Bitte zuerst anmelden');const r=await fetch(`${a.baseUrl}/functions/v1/world-google-play`,{method:'POST',headers:{apikey:a.publishableKey,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const b=await r.json().catch(()=>({}));if(!r.ok||b.success===false)throw new Error(b.error||b.message||`Google Play Billing fehlgeschlagen (${r.status})`);return b;}
+async function edge(action,data={}){return api().localRequest('google-play',{method:'POST',body:{action,...data}});}
 async function service(){if(servicePromise)return servicePromise;servicePromise=(async()=>{if(typeof window.getDigitalGoodsService!=='function')throw new Error('Google Play Billing ist in dieser App-Umgebung nicht verfügbar');return window.getDigitalGoodsService(STORE_ID);})();try{return await servicePromise;}catch(error){servicePromise=null;throw error;}}
 async function catalog(){if(catalogCache)return catalogCache;if(catalogPromise)return catalogPromise;catalogPromise=edge('catalog').then(result=>{const products=Array.isArray(result?.products)?result.products:[];if(!products.length)throw new Error('Google-Play-Produktkatalog ist noch nicht konfiguriert');catalogCache=products;return products;}).catch(error=>{catalogPromise=null;throw error;});return catalogPromise;}
 function normalizeToken(details={}){return String(details.purchaseToken||details.token||'').trim();}
@@ -107,13 +107,13 @@ function restoreIdentity(){
   const user=window.worldCurrentUser||{};
   const id=String(user.id||user.authId||user.auth_user_id||user.public_id||'').trim();
   if(id)return id;
-  const token=window.worldAccounts?.authApi?.session?.access_token||'';
+  const token=window.worldAccounts?.authApi?.localSession?.token||'';
   return token?`session:${String(token).slice(-24)}`:'';
 }
 
 export async function autoRestoreGooglePlayPurchases(){
   const auth=window.worldAccounts?.authApi;
-  if(!auth?.session?.access_token||!window.worldCurrentUser)return false;
+  if(!auth?.localSession?.token||!window.worldCurrentUser)return false;
   const identity=restoreIdentity();
   if(!identity)return false;
   if(autoRestoreIdentity===identity)return true;
