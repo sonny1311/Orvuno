@@ -17,7 +17,7 @@ async function catalog(){if(catalogCache)return catalogCache;if(catalogPromise)r
 function normalizeToken(details={}){return String(details.purchaseToken||details.token||'').trim();}
 async function productFor(internalSku){const products=await catalog();const product=products.find(x=>x.internalSku===internalSku);if(!product?.playSku)throw new Error('Dieses Produkt ist für Google Play noch nicht freigeschaltet');return product;}
 function cachedProductFor(internalSku){const product=(catalogCache||[]).find(x=>x.internalSku===internalSku);if(!product?.playSku)throw new Error('Google Play wird noch geladen. Bitte kurz warten und erneut tippen.');return product;}
-async function refreshEntitlements(){try{await window.worldAccounts?.gameStateSync?.refreshBalances?.();await window.worldAccounts?.premiumLifecycle?.refreshAccount?.(window.worldAccounts?.authApi);}catch(error){console.warn('Google-Play-Gutschrift konnte nicht sofort neu geladen werden',error);}}
+async function refreshEntitlements(){try{await window.worldAccounts?.authApi?.syncLocalEntitlements?.();await window.worldAccounts?.gameStateSync?.refreshBalances?.();await window.worldAccounts?.premiumLifecycle?.refreshAccount?.(window.worldAccounts?.authApi);}catch(error){console.warn('Google-Play-Gutschrift konnte nicht sofort neu geladen werden',error);}}
 
 function showGooglePlayDiagnostic({stage='',internalSku='',playSku='',name='',message='',code='' }={}){
   try{
