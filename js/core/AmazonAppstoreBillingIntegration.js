@@ -41,15 +41,8 @@ async function verifyReceipt(detail={}){
   try{
     const api=authApi();
     if(!api)throw new Error('Spielersitzung ist noch nicht bereit.');
-    const token=await api.ensureAccessToken();
-    if(!token)throw new Error('Spielersitzung ist abgelaufen.');
-    const response=await fetch(`${api.baseUrl}/functions/v1/world-amazon-iap`,{
-      method:'POST',
-      headers:{apikey:api.publishableKey,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({amazonUserId,receiptId,sku:amazonSku})
-    });
-    const body=await response.json().catch(()=>({}));
-    if(!response.ok||body?.success!==true)throw new Error(body?.error||`Kaufprüfung fehlgeschlagen (${response.status}).`);
+    const body=await api.localRequest('amazon-iap',{method:'POST',body:{amazonUserId,receiptId,sku:amazonSku}});
+    if(body?.success!==true)throw new Error(body?.error||'Kaufprüfung fehlgeschlagen.');
     const bridge=requireBridge();
     if(typeof bridge.notifyFulfilled==='function')bridge.notifyFulfilled(receiptId);
     await refreshAccount();
