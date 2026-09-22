@@ -131,7 +131,7 @@ function scrypt(password, salt) {
 async function createPasswordHash(password) {
   const salt = crypto.randomBytes(16);
   const derived = await scrypt(password, salt);
-  return `scrypt${salt.toString("base64url")}${derived.toString("base64url")}`;
+  return ["scrypt", salt.toString("base64url"), derived.toString("base64url")].join(String.fromCharCode(36));
 }
 
 async function verifyPasswordHash(password, hash) {
