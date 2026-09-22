@@ -26,6 +26,16 @@ function bearerToken(req) {
   return match[1];
 }
 
+function migrationSecretOk(req) {
+  const expected = String(process.env.AUTH_MIGRATION_SECRET || "");
+  const supplied = String(req.headers["x-orvuno-migration-secret"] || "");
+  if (!expected || !supplied) return false;
+  return crypto.timingSafeEqual(
+    Buffer.from(sha(expected), "hex"),
+    Buffer.from(sha(supplied), "hex")
+  );
+}
+
 function scrypt(password, salt) {
   return new Promise((resolve, reject) => {
     crypto.scrypt(String(password || ""), salt, 64, (error, derivedKey) => {
@@ -225,6 +235,83 @@ app.get("/api/orvuno/health", async (_req, res) => {
     });
   } catch (error) {
     sendError(res, error);
+  }
+});
+
+app.post("/api/orvuno/internal/auth-import", async (req, res) => {
+  if (!migrationSecretOk(req)) {
+    return res.status(404).json({ success: false, error: "Not found" });
+  }
+
+  const rows = Array.isArray(req.body?.users) ? req.body.users : [];
+  if (!rows.length || rows.length > 500) {
+    return res.status(400).json({ success: false, error: "Ungueltige Importdaten" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    let updated = 0;
+    let missing = 0;
+    let invalid = 0;
+
+    for (const row of rows) {
+      const authUserId = String(row?.authUserId || "").trim();
+      const passwordHash = String(row?.passwordHash || "");
+
+      if (!authUserId || !passwordHash.startsWith("$2")) {
+        invalid += 1;
+        continue;
+      }
+
+      const result = await client.query(
+        `update public.users
+            set password_hash=$2,
+                email_verified_at=coalesce(email_verified_at,$3),
+                last_login_at=coalesce(greatest(last_login_at,$4),last_login_at,$4)
+          where auth_user_id=$1
+          returning id`,
+        [
+          authUserId,
+          passwordHash,
+          row?.emailConfirmedAt || null,
+          row?.lastSignInAt || null
+        ]
+      );
+
+      if (result.rowCount === 1) updated += 1;
+      else missing += 1;
+    }
+
+    if (invalid > 0 || updated === 0) {
+      throw httpError(400, "Auth-Import unvollstaendig oder ungueltig");
+    }
+
+    const verify = await client.query(
+      `select
+          count(*) filter (where deleted_at is null)::int as total_users,
+          count(*) filter (where deleted_at is null and password_hash like '$2%')::int as bcrypt_users,
+          count(*) filter (where deleted_at is null and password_hash='SUPABASE_AUTH')::int as unmigrated_users
+       from public.users`
+    );
+
+    await client.query("commit");
+
+    res.json({
+      success: true,
+      source: "supabase-bulk-auth-import",
+      received: rows.length,
+      updated,
+      missing,
+      invalid,
+      verification: verify.rows[0]
+    });
+  } catch (error) {
+    try { await client.query("rollback"); } catch {}
+    sendError(res, error);
+  } finally {
+    client.release();
   }
 });
 
