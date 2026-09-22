@@ -2,7 +2,7 @@
 // Preis und Kaufprodukt werden serverseitig aus store_products aufgelöst.
 function api(){const a=window.worldAccounts?.authApi;if(!a)throw new Error('Zahlungssystem ist noch nicht bereit');return a;}
 function assertCheckoutContext(){if(window.worldBusinessSwitchPaymentGuard?.blocked?.())throw new Error('Während eines Betriebswechsels kann keine Zahlung gestartet werden');}
-async function edge(action,data={}){const a=api(),token=await a.ensureAccessToken();if(!token)throw new Error('Bitte zuerst anmelden');const r=await fetch(`${a.baseUrl}/functions/v1/world-payments`,{method:'POST',headers:{apikey:a.publishableKey,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const b=await r.json().catch(()=>({}));if(!r.ok||b.success===false)throw new Error(b.error||b.message||`Zahlung fehlgeschlagen (${r.status})`);return b;}
+async function edge(action,data={}){return api().localRequest('payments',{method:'POST',body:{action,...data}});}
 
 export async function beginStripePurchase({sku}={}){
  assertCheckoutContext();
