@@ -5,7 +5,7 @@ const crypto = require("crypto");
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", "loopback");
-app.use(express.json({ limit: "6mb" }));
+app.use(express.json({ limit: "6mb", verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); } }));
 
 const PORT = Number(process.env.PORT || 8791);
 const SUPABASE_URL = "https://ojhaeccyulyrwoxgeurf.supabase.co";
@@ -1203,6 +1203,8 @@ app.post("/api/orvuno/coins/time-reduction", async (req, res) => {
     sendError(res, error);
   }
 });
+
+require("./payments.cjs")({ app, pool, withUser });
 
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Orvuno API listening on 127.0.0.1:${PORT}`);
