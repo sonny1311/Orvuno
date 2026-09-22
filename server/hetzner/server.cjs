@@ -190,7 +190,7 @@ app.get("/api/orvuno/health", async (_req, res) => {
     res.json({
       ok: true,
       service: "orvuno-api",
-      database: "worldprojekt",
+      database: "orvuno",
       mode: "hetzner-gameplay-ready"
     });
   } catch (error) {
