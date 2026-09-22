@@ -1,5 +1,6 @@
 const express = require("express");
 const { Pool } = require("pg");
+const crypto = require("crypto");
 
 const app = express();
 app.disable("x-powered-by");
@@ -11,6 +12,20 @@ const SUPABASE_KEY = "sb_publishable_JZH6Ker5-yZoNY6sQFhVTA_YKnImI3z";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+const LOCAL_SESSION_PREFIX = "orv1_";
+const LOCAL_SESSION_HOURS = 2;
+
+function sha(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
+}
+
+function bearerToken(req) {
+  const header = String(req.headers.authorization || "");
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) throw httpError(401, "Nicht angemeldet");
+  return match[1];
+}
+
 function httpError(status, message) {
   const e = new Error(message);
   e.status = status;
@@ -18,14 +33,15 @@ function httpError(status, message) {
 }
 
 async function getAuthUser(req) {
-  const header = String(req.headers.authorization || "");
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  if (!match) throw httpError(401, "Nicht angemeldet");
+  const token = bearerToken(req);
+  if (token.startsWith(LOCAL_SESSION_PREFIX)) {
+    throw httpError(401, "Supabase-Sitzung fuer Uebergabe erwartet");
+  }
 
   const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
       apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${match[1]}`
+      Authorization: `Bearer ${token}`
     }
   });
 
@@ -51,16 +67,83 @@ async function requireActiveGameUser(client, authId) {
   return user;
 }
 
+async function createLocalSession(client, userId, req) {
+  const token = `${LOCAL_SESSION_PREFIX}${crypto.randomBytes(32).toString("base64url")}`;
+  const expiresAt = new Date(Date.now() + LOCAL_SESSION_HOURS * 60 * 60 * 1000);
+
+  await client.query(
+    `delete from public.auth_sessions
+      where user_id=$1
+        and (expires_at <= now() or revoked_at is not null)`,
+    [userId]
+  );
+
+  await client.query(
+    `insert into public.auth_sessions
+      (id,user_id,token_hash,ip_hash,user_agent_hash,expires_at)
+      values($1,$2,$3,$4,$5,$6)`,
+    [
+      crypto.randomUUID(),
+      userId,
+      sha(token),
+      sha(req.ip || req.socket?.remoteAddress || ""),
+      sha(req.headers["user-agent"] || ""),
+      expiresAt
+    ]
+  );
+
+  return { token, expiresAt: expiresAt.toISOString() };
+}
+
+async function resolveLocalSession(client, token) {
+  const result = await client.query(
+    `select u.*,s.id as local_session_id
+       from public.auth_sessions s
+       join public.users u on u.id=s.user_id
+      where s.token_hash=$1
+        and s.revoked_at is null
+        and s.expires_at>now()
+        and u.deleted_at is null
+      limit 1`,
+    [sha(token)]
+  );
+
+  const user = result.rows[0];
+  if (!user) throw httpError(401, "Lokale Spielsitzung ist abgelaufen");
+  if (user.status !== "active") throw httpError(403, "Account ist nicht zum Spielen freigegeben");
+
+  await client.query(
+    "update public.auth_sessions set last_seen_at=now() where id=$1",
+    [user.local_session_id]
+  );
+
+  return {
+    auth: {
+      id: user.auth_user_id,
+      email: user.email,
+      email_confirmed_at: user.email_verified_at
+    },
+    gameUser: user
+  };
+}
+
+async function resolveRequestUser(req, client) {
+  const token = bearerToken(req);
+
+  if (token.startsWith(LOCAL_SESSION_PREFIX)) {
+    return resolveLocalSession(client, token);
+  }
+
+  const auth = await getAuthUser(req);
+  await syncEntitlementsFromSupabase(client, auth.id, token);
+  const gameUser = await requireActiveGameUser(client, auth.id);
+  return { auth, gameUser };
+}
+
 async function withUser(req, fn) {
   const client = await pool.connect();
   try {
-    const header = String(req.headers.authorization || "");
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    if (!match) throw httpError(401, "Nicht angemeldet");
-
-    const auth = await getAuthUser(req);
-    await syncEntitlementsFromSupabase(client, auth.id, match[1]);
-    const gameUser = await requireActiveGameUser(client, auth.id);
+    const { auth, gameUser } = await resolveRequestUser(req, client);
     return await fn({ client, auth, gameUser });
   } finally {
     client.release();
@@ -104,6 +187,50 @@ app.get("/api/orvuno/health", async (_req, res) => {
     });
   } catch (error) {
     sendError(res, error);
+  }
+});
+
+app.post("/api/orvuno/session/exchange", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const supabaseToken = bearerToken(req);
+    if (supabaseToken.startsWith(LOCAL_SESSION_PREFIX)) {
+      throw httpError(400, "Supabase-Sitzung fuer Uebergabe erwartet");
+    }
+
+    const auth = await getAuthUser(req);
+    await syncEntitlementsFromSupabase(client, auth.id, supabaseToken);
+    const gameUser = await requireActiveGameUser(client, auth.id);
+    const session = await createLocalSession(client, gameUser.id, req);
+
+    res.json({
+      success: true,
+      source: "hetzner",
+      token: session.token,
+      expiresAt: session.expiresAt
+    });
+  } catch (error) {
+    sendError(res, error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/orvuno/session/logout", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const token = bearerToken(req);
+    if (token.startsWith(LOCAL_SESSION_PREFIX)) {
+      await client.query(
+        "update public.auth_sessions set revoked_at=now() where token_hash=$1 and revoked_at is null",
+        [sha(token)]
+      );
+    }
+    res.json({ success: true, source: "hetzner" });
+  } catch (error) {
+    sendError(res, error);
+  } finally {
+    client.release();
   }
 });
 
