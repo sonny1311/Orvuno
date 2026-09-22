@@ -1,4 +1,4 @@
-// ORVUNO - sichtbare Supabase-Registrierung/Login
+// ORVUNO - sichtbare Registrierung/Login
 import { AuthApiClient } from "./AuthApiClient.js";
 
 export class AccountAuthDialog {
@@ -20,7 +20,7 @@ export class AccountAuthDialog {
     i18n(){return window.orvunoI18n||null;}
     locale(){return this.i18n()?.getLocale?.()||"de";}
     tx(key,de,en){const api=this.i18n();const value=api?.t?.(key);if(value&&value!==key)return value;return this.locale()==="de"?de:en;}
-    recoveryMode(){return this.api?.session?.type==="recovery";}
+    recoveryMode(){return !!this.api?.isPasswordRecovery?.();}
 
     async withBusy(button,task){
         if(!button||this.busy.has(button))return;
