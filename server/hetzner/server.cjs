@@ -26,12 +26,42 @@ function bearerToken(req) {
   return match[1];
 }
 
+function scrypt(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(String(password || ""), salt, 64, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
+}
+
+async function createPasswordHash(password) {
+  const salt = crypto.randomBytes(16);
+  const derived = await scrypt(password, salt);
+  return `scrypt${salt.toString("base64url")}${derived.toString("base64url")}`;
+}
+
 async function verifyPasswordHash(password, hash) {
-  const result = await pool.query(
-    "select crypt($1,$2)=$2 as ok",
-    [String(password || ""), String(hash || "")]
-  );
-  return result.rows[0]?.ok === true;
+  const stored = String(hash || "");
+
+  if (stored.startsWith("scrypt$")) {
+    const parts = stored.split("$");
+    if (parts.length !== 3) return false;
+    const salt = Buffer.from(parts[1], "base64url");
+    const expected = Buffer.from(parts[2], "base64url");
+    const actual = await scrypt(password, salt);
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+
+  if (stored.startsWith("$2")) {
+    const result = await pool.query(
+      "select crypt($1,$2)=$2 as ok",
+      [String(password || ""), stored]
+    );
+    return result.rows[0]?.ok === true;
+  }
+
+  return false;
 }
 
 function httpError(status, message) {
@@ -225,12 +255,12 @@ app.post("/api/orvuno/auth/login", async (req, res) => {
     }
 
     const hash = String(user.password_hash || "");
-    if (!hash.startsWith("$2")) {
+    if (hash === "SUPABASE_AUTH" || !hash) {
       throw httpError(503, "Account ist noch nicht auf Hetzner-Login migriert");
     }
 
-    const ok = await client.query("select crypt($1,$2)=$2 as ok", [password, hash]);
-    if (ok.rows[0]?.ok !== true) {
+    const ok = await verifyPasswordHash(password, hash);
+    if (!ok) {
       const failed = Number(user.failed_login_count || 0) + 1;
       await client.query(
         `update public.users
@@ -265,6 +295,74 @@ app.post("/api/orvuno/auth/login", async (req, res) => {
         email: user.email,
         email_confirmed_at: user.email_verified_at
       }),
+      session: {
+        access_token: session.token,
+        token_type: "bearer",
+        expires_at: Math.floor(new Date(session.expiresAt).getTime() / 1000),
+        expiresAt: session.expiresAt,
+        provider: "hetzner"
+      }
+    });
+  } catch (error) {
+    sendError(res, error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/orvuno/auth/adopt-password", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const supabaseToken = bearerToken(req);
+    if (supabaseToken.startsWith(LOCAL_SESSION_PREFIX)) {
+      throw httpError(400, "Supabase-Sitzung fuer Passwortuebernahme erwartet");
+    }
+
+    const password = String(req.body?.password || "");
+    if (!password) throw httpError(400, "Passwort fehlt");
+
+    const auth = await getAuthUser(req);
+    if (!auth?.email) throw httpError(400, "Supabase-Account hat keine E-Mail-Adresse");
+
+    const verifyResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email: auth.email, password })
+    });
+
+    if (!verifyResponse.ok) {
+      throw httpError(401, "Passwort konnte nicht bestaetigt werden");
+    }
+
+    await syncEntitlementsFromSupabase(client, auth.id, supabaseToken);
+    const gameUser = await requireActiveGameUser(client, auth.id);
+    const passwordHash = await createPasswordHash(password);
+
+    await client.query(
+      `update public.users
+          set password_hash=$2,
+              failed_login_count=0,
+              locked_until=null,
+              last_login_at=now(),
+              last_seen_at=now(),
+              email_verified_at=coalesce(email_verified_at,$3)
+        where id=$1`,
+      [gameUser.id, passwordHash, auth.email_confirmed_at || null]
+    );
+
+    const session = await createLocalSession(client, gameUser.id, req);
+    const refreshed = await client.query(
+      "select * from public.users where id=$1 limit 1",
+      [gameUser.id]
+    );
+
+    res.json({
+      success: true,
+      source: "hetzner-adopted",
+      user: normalizeUser(refreshed.rows[0], auth),
       session: {
         access_token: session.token,
         token_type: "bearer",
