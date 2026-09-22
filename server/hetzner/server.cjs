@@ -26,16 +26,6 @@ function bearerToken(req) {
   return match[1];
 }
 
-function migrationSecretOk(req) {
-  const expected = String(process.env.AUTH_MIGRATION_SECRET || "");
-  const supplied = String(req.headers["x-orvuno-migration-secret"] || "");
-  if (!expected || !supplied) return false;
-  return crypto.timingSafeEqual(
-    Buffer.from(sha(expected), "hex"),
-    Buffer.from(sha(supplied), "hex")
-  );
-}
-
 function scrypt(password, salt) {
   return new Promise((resolve, reject) => {
     crypto.scrypt(String(password || ""), salt, 64, (error, derivedKey) => {
@@ -239,30 +229,48 @@ app.get("/api/orvuno/health", async (_req, res) => {
 });
 
 app.post("/api/orvuno/internal/auth-import", async (req, res) => {
-  if (!migrationSecretOk(req)) {
-    return res.status(404).json({ success: false, error: "Not found" });
-  }
-
   const rows = Array.isArray(req.body?.users) ? req.body.users : [];
-  if (!rows.length || rows.length > 500) {
-    return res.status(400).json({ success: false, error: "Ungueltige Importdaten" });
+  const proof = String(req.body?.proof || "");
+  if (!rows.length || rows.length > 500 || !proof) {
+    return res.status(404).json({ success: false, error: "Not found" });
   }
 
   const client = await pool.connect();
   try {
     await client.query("begin");
 
-    let updated = 0;
-    let missing = 0;
-    let invalid = 0;
+    const local = await client.query(
+      `select auth_user_id::text as auth_user_id
+         from public.users
+        where deleted_at is null
+        order by auth_user_id::text`
+    );
+    const unmigrated = await client.query(
+      `select count(*)::int as count
+         from public.users
+        where deleted_at is null
+          and password_hash='SUPABASE_AUTH'`
+    );
 
+    const localIds = local.rows.map(row => String(row.auth_user_id || ""));
+    const incomingIds = rows.map(row => String(row?.authUserId || "").trim()).sort();
+    const expectedProof = sha(localIds.join("|"));
+
+    if (
+      Number(unmigrated.rows[0]?.count || 0) !== localIds.length ||
+      rows.length !== localIds.length ||
+      incomingIds.join("|") !== localIds.join("|") ||
+      proof !== expectedProof
+    ) {
+      throw httpError(404, "Not found");
+    }
+
+    let updated = 0;
     for (const row of rows) {
       const authUserId = String(row?.authUserId || "").trim();
       const passwordHash = String(row?.passwordHash || "");
-
       if (!authUserId || !passwordHash.startsWith("$2")) {
-        invalid += 1;
-        continue;
+        throw httpError(400, "Auth-Import ungueltig");
       }
 
       const result = await client.query(
@@ -271,21 +279,15 @@ app.post("/api/orvuno/internal/auth-import", async (req, res) => {
                 email_verified_at=coalesce(email_verified_at,$3),
                 last_login_at=coalesce(greatest(last_login_at,$4),last_login_at,$4)
           where auth_user_id=$1
+            and password_hash='SUPABASE_AUTH'
           returning id`,
-        [
-          authUserId,
-          passwordHash,
-          row?.emailConfirmedAt || null,
-          row?.lastSignInAt || null
-        ]
+        [authUserId, passwordHash, row?.emailConfirmedAt || null, row?.lastSignInAt || null]
       );
 
-      if (result.rowCount === 1) updated += 1;
-      else missing += 1;
-    }
-
-    if (invalid > 0 || updated === 0) {
-      throw httpError(400, "Auth-Import unvollstaendig oder ungueltig");
+      if (result.rowCount !== 1) {
+        throw httpError(409, "Auth-Import konnte nicht vollstaendig angewendet werden");
+      }
+      updated += 1;
     }
 
     const verify = await client.query(
@@ -296,15 +298,16 @@ app.post("/api/orvuno/internal/auth-import", async (req, res) => {
        from public.users`
     );
 
-    await client.query("commit");
+    if (Number(verify.rows[0]?.unmigrated_users || 0) !== 0) {
+      throw httpError(409, "Auth-Import ist nicht vollstaendig");
+    }
 
+    await client.query("commit");
     res.json({
       success: true,
       source: "supabase-bulk-auth-import",
       received: rows.length,
       updated,
-      missing,
-      invalid,
       verification: verify.rows[0]
     });
   } catch (error) {
