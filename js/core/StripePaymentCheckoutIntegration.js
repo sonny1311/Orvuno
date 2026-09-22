@@ -50,6 +50,7 @@ async function verifyFulfillment(sessionId){
 }
 async function refreshEntitlements(){
  try{
+  await window.worldAccounts?.authApi?.syncLocalEntitlements?.();
   await window.worldAccounts?.gameStateSync?.refreshBalances?.();
   await window.worldAccounts?.premiumLifecycle?.refreshAccount?.(window.worldAccounts.authApi);
  }catch(error){console.warn('Stripe-Gutschrift konnte nicht sofort neu geladen werden',error);}
