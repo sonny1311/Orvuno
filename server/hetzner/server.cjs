@@ -26,6 +26,14 @@ function bearerToken(req) {
   return match[1];
 }
 
+async function verifyPasswordHash(password, hash) {
+  const result = await pool.query(
+    "select crypt($1,$2)=$2 as ok",
+    [String(password || ""), String(hash || "")]
+  );
+  return result.rows[0]?.ok === true;
+}
+
 function httpError(status, message) {
   const e = new Error(message);
   e.status = status;
@@ -187,6 +195,88 @@ app.get("/api/orvuno/health", async (_req, res) => {
     });
   } catch (error) {
     sendError(res, error);
+  }
+});
+
+app.post("/api/orvuno/auth/login", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const emailOrUsername = String(req.body?.email || req.body?.emailOrUsername || "").trim();
+    const password = String(req.body?.password || "");
+
+    if (!emailOrUsername || !password) {
+      throw httpError(400, "E-Mail/Benutzername und Passwort erforderlich");
+    }
+
+    const found = await client.query(
+      `select *
+         from public.users
+        where deleted_at is null
+          and (lower(email)=lower($1) or lower(username)=lower($1))
+        limit 1`,
+      [emailOrUsername]
+    );
+
+    const user = found.rows[0];
+    if (!user) throw httpError(401, "E-Mail/Benutzername oder Passwort falsch");
+
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      throw httpError(423, "Account voruebergehend gesperrt");
+    }
+
+    const hash = String(user.password_hash || "");
+    if (!hash.startsWith("$2")) {
+      throw httpError(503, "Account ist noch nicht auf Hetzner-Login migriert");
+    }
+
+    const ok = await client.query("select crypt($1,$2)=$2 as ok", [password, hash]);
+    if (ok.rows[0]?.ok !== true) {
+      const failed = Number(user.failed_login_count || 0) + 1;
+      await client.query(
+        `update public.users
+            set failed_login_count=$2,
+                locked_until=case when $2>=5 then now()+interval '15 minutes' else locked_until end
+          where id=$1`,
+        [user.id, failed]
+      );
+      throw httpError(401, "E-Mail/Benutzername oder Passwort falsch");
+    }
+
+    if (!user.email_verified_at) throw httpError(403, "Bitte zuerst die E-Mail-Adresse bestaetigen");
+    if (user.status !== "active") throw httpError(403, `Accountstatus: ${user.status}`);
+
+    await client.query(
+      `update public.users
+          set failed_login_count=0,
+              locked_until=null,
+              last_login_at=now(),
+              last_seen_at=now()
+        where id=$1`,
+      [user.id]
+    );
+
+    const session = await createLocalSession(client, user.id, req);
+
+    res.json({
+      success: true,
+      source: "hetzner",
+      user: normalizeUser(user, {
+        id: user.auth_user_id,
+        email: user.email,
+        email_confirmed_at: user.email_verified_at
+      }),
+      session: {
+        access_token: session.token,
+        token_type: "bearer",
+        expires_at: Math.floor(new Date(session.expiresAt).getTime() / 1000),
+        expiresAt: session.expiresAt,
+        provider: "hetzner"
+      }
+    });
+  } catch (error) {
+    sendError(res, error);
+  } finally {
+    client.release();
   }
 });
 
