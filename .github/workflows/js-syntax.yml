@@ -42,6 +42,9 @@ jobs:
       - name: Run Amazon Appstore regression test
         shell: bash
         run: node tests/amazon-appstore-iap.test.mjs
+      - name: Run mobile app usability regression test
+        shell: bash
+        run: node tests/mobile-app-usability.test.mjs
       - name: Run player access regression test
         shell: bash
         run: node tests/player-access-no-game-id.test.mjs
